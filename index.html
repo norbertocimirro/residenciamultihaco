@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portal da Residência Multiprofissional</title>
+    <!-- Tailwind CSS CDN para rodar direto do repositório web -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              slate: { 50: '#fafafa', 100: '#f5f5f5', 200: '#e5e5e5', 400: '#a3a3a3', 500: '#737373', 600: '#525252', 800: '#262626', 900: '#171717' }
+            }
+          }
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.jsx"></script>
+  </body>
+</html>
