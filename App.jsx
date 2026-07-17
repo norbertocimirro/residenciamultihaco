@@ -6,7 +6,8 @@ import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot } from 'fi
 import { 
   BookOpen, Calendar, Users, MessageSquare, Award, ShieldAlert, User, 
   GraduationCap, FolderPlus, Bell, Lock, LogOut, CloudLightning, Activity, 
-  TrendingUp, Target, UploadCloud, CheckCircle, Clock, AlertTriangle, ChevronRight
+  TrendingUp, Target, UploadCloud, CheckCircle, Clock, AlertTriangle, ChevronRight,
+  LayoutDashboard, ClipboardList, FileText
 } from 'lucide-react';
 
 // ==========================================
