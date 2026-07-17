@@ -3,418 +3,327 @@ import {
   BookOpen, Calendar, FileText, Users, MessageSquare, 
   CheckCircle, FileSpreadsheet, ChevronDown, ChevronUp, 
   Plus, Edit3, MoreVertical, ClipboardList, Award, ShieldAlert,
-  User, GraduationCap, LayoutDashboard, Send, Check, AlertCircle
+  User, GraduationCap, LayoutDashboard, Send, Check, AlertCircle,
+  Briefcase, FolderPlus, Settings, Bell, Trash2, Layers
 } from 'lucide-react';
 
-export default function ResidencyPortal() {
-  // Controle de Perfil: 'professor' ou 'aluno'
-  const [userRole, setUserRole] = useState('professor');
-  // Se for aluno, qual aluno está logado (para simular a visão dele)
-  const [selectedStudentId, setSelectedStudentId] = useState(1);
+export default function UniversalResidencyPortal() {
+  // Controle Geral de Nível de Acesso: 'admin' | 'professor' | 'aluno'
+  const [userRole, setUserRole] = useState('admin');
+  const [activeTab, setActiveTab] = useState('config-residencia');
   
-  const [activeTab, setActiveTab] = useState('curso');
-  const [expandedSections, setExpandedSections] = useState({
-    geral: true,
-    mural: true,
-    interacoes: false,
-    materiais: true,
-    atividades: true
-  });
+  // Estado das Residências Cadastradas (Multi-Residências)
+  const [residencias, setResidencias] = useState([
+    { id: 'ab', nome: "Atenção Básica: Saúde da Família e Comunidade" },
+    { id: 'sm', nome: "Saúde Mental e Coletiva" },
+    { id: 'ue', nome: "Urgência, Emergência e Intensivismo" }
+  ]);
+  const [selectedResidencia, setSelectedResidencia] = useState('ab');
 
-  // Estado dinâmico dos residentes para permitir edição em tempo real no painel do professor
-  const [residentes, setResidentes] = useState([
-    { id: 1, nome: "Ana Silva (Enfermagem)", faltas: 2, ga: 8.5, gb: 9.0, gc: "", status: "Aprovado", parecer: "Excelente desempenho nas atividades práticas de territorialização." },
-    { id: 2, nome: "Bruno Costa (Odontologia)", faltas: 0, ga: 7.8, gb: 8.3, gc: "", status: "Aprovado", parecer: "Demonstra ótima integração com a equipe multiprofissional." },
-    { id: 3, nome: "Carlos Souza (Psicologia)", faltas: 4, ga: 5.5, gb: 6.0, gc: 7.5, status: "Aprovado pelo Exame", parecer: "Necessita qualificar a entrega dos relatórios de campo." },
-    { id: 4, nome: "Daniela Lima (Serviço Social)", faltas: 1, ga: 9.2, gb: 9.5, gc: "", status: "Aprovado", parecer: "Liderança destacada nas discussões de caso clínico." },
-    { id: 5, nome: "Eduardo Reis (Nutrição)", faltas: 12, ga: 4.0, gb: 2.5, gc: 0, status: "Reprovado por Faltas", parecer: "Excedeu o limite de faltas permitido no edital da Coremu." },
+  // Estado Global de Disciplinas/Módulos
+  const [disciplinas, setDisciplinas] = useState([
+    { id: 'rm001', residenciaId: 'ab', codigo: 'RMAB001', titulo: 'Territorialização e Diagnóstico de Saúde', ementa: 'Análise demográfica, epidemiológica e socioeconômica do território adscrito. Estimativa rápida e mapeamento de vulnerabilidades.' },
+    { id: 'rm002', residenciaId: 'ab', codigo: 'RMAB002', titulo: 'Clínica Ampliada e Projeto Terapêutico Singular', ementa: 'Discussão de casos complexos, genograma, ecomapa e articulação de redes vivas de cuidado na Atenção Primária.' },
+    { id: 'rm003', residenciaId: 'sm', codigo: 'RMSM001', titulo: 'Rede de Atenção Psicossocial (RAPS)', ementa: 'Organização dos serviços de saúde mental, matriciamento e clínica da reforma psiquiátrica.' }
+  ]);
+  const [selectedDisciplina, setSelectedDisciplina] = useState('rm001');
+
+  // Estado Global de Avisos/Mural
+  const [avisos, setAvisos] = useState([
+    { id: 1, disciplinaId: 'rm001', titulo: 'Mapeamento e Territorialização em Saúde', data: '17/07/2026', autor: 'Prof.ª Dra. Renata Gonçalves', conteudo: 'Prezados residentes, o objetivo central deste módulo consiste em analisar criticamente o território das suas respectivas UBS de atuação.' }
   ]);
 
-  // Simulação de entrega de arquivo pelo aluno
-  const [fileSubmitted, setFileSubmitted] = useState(false);
+  // Estado dos Alunos, Notas e Faltas (Unificado)
+  const [residentes, setResidentes] = useState([
+    { id: 1, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Ana Silva (Enfermagem)", faltas: 2, ga: 8.5, gb: 9.0, gc: "", status: "Aprovado", parecer: "Excelente desempenho nas atividades práticas de territorialização." },
+    { id: 2, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Bruno Costa (Odontologia)", faltas: 0, ga: 7.8, gb: 8.3, gc: "", status: "Aprovado", parecer: "Demonstra ótima integração com a equipe multiprofissional." },
+    { id: 3, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Carlos Souza (Psicologia)", faltas: 4, ga: 5.5, gb: 6.0, gc: 7.5, status: "Aprovado pelo Exame", parecer: "Necessita qualificar a entrega dos relatórios de campo." },
+    { id: 4, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Daniela Lima (Serviço Social)", faltas: 1, ga: 9.2, gb: 9.5, gc: "", status: "Aprovado", parecer: "Liderança destacada nas discussões de caso clínico." },
+    { id: 5, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Eduardo Reis (Nutrição)", faltas: 12, ga: 4.0, gb: 2.5, gc: 0, status: "Reprovado por Faltas", parecer: "Excedeu o limite de faltas permitido no edital da Coremu." },
+  ]);
+  const [selectedStudentId, setSelectedStudentId] = useState(1);
 
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  // Estados de Formulário (Inclusão de Dados)
+  const [newResidenciaNome, setNewResidenciaNome] = useState('');
+  const [newDiscCodigo, setNewDiscCodigo] = useState('');
+  const [newDiscTitulo, setNewDiscTitulo] = useState('');
+  const [newDiscEmenta, setNewDiscEmenta] = useState('');
+  const [newAvisoTitulo, setNewAvisoTitulo] = useState('');
+  const [newAvisoConteudo, setNewAvisoConteudo] = useState('');
+
+  // Handlers do Administrador
+  const addResidencia = (e) => {
+    e.preventDefault();
+    if (!newResidenciaNome) return;
+    const id = Math.random().toString(36).substr(2, 2);
+    setResidencias([...residencias, { id, nome: newResidenciaNome }]);
+    setNewResidenciaNome('');
   };
 
-  // Função para o professor atualizar notas em tempo real
+  const addDisciplina = (e) => {
+    e.preventDefault();
+    if (!newDiscCodigo || !newDiscTitulo) return;
+    const id = Math.random().toString(36).substr(2, 5);
+    setDisciplinas([...disciplinas, {
+      id, residenciaId: selectedResidencia, codigo: newDiscCodigo, titulo: newDiscTitulo, ementa: newDiscEmenta
+    }]);
+    setNewDiscCodigo(''); setNewDiscTitulo(''); setNewDiscEmenta('');
+  };
+
+  const addAviso = (e) => {
+    e.preventDefault();
+    if (!newAvisoTitulo || !newAvisoConteudo) return;
+    setAvisos([...avisos, {
+      id: Date.now(), disciplinaId: selectedDisciplina, titulo: newAvisoTitulo, data: '17/07/2026', autor: 'Coordenação Acadêmica', conteudo: newAvisoConteudo
+    }]);
+    setNewAvisoTitulo(''); setNewAvisoConteudo('');
+  };
+
+  // Handlers de Notas e Frequência (Professor)
   const handleNotaChange = (id, campo, valor) => {
     const numValor = valor === "" ? "" : parseFloat(valor) || 0;
     setResidentes(prev => prev.map(res => {
       if (res.id === id) {
         const updated = { ...res, [campo]: numValor };
-        // Recalcula Nota Final e Status
-        const ga = updated.ga || 0;
-        const gb = updated.gb || 0;
-        const gc = updated.gc !== "" ? updated.gc : null;
-        
+        const ga = updated.ga || 0; const gb = updated.gb || 0; const gc = updated.gc !== "" ? updated.gc : null;
         let notaFinal = (ga + gb) / 2;
         if (gc !== null) notaFinal = (notaFinal + gc) / 2;
-        
         updated.total = parseFloat(notaFinal.toFixed(2));
-        
-        if (updated.faltas > 10) {
-          updated.status = "Reprovado por Faltas";
-        } else if (gc !== null && notaFinal >= 7) {
-          updated.status = "Aprovado pelo Exame";
-        } else if (notaFinal >= 7) {
-          updated.status = "Aprovado";
-        } else {
-          updated.status = "Em Exame (GC)";
-        }
+        updated.status = updated.faltas > 10 ? "Reprovado por Faltas" : (notaFinal >= 7 ? "Aprovado" : "Em Exame (GC)");
         return updated;
       }
       return res;
     }));
   };
 
-  // Função para alternar presença no diário de classe
   const handlePresencaChange = (id, estavaPresente) => {
     setResidentes(prev => prev.map(res => {
       if (res.id === id) {
         const novasFaltas = estavaPresente ? Math.max(0, res.faltas - 1) : res.faltas + 1;
-        return {
-          ...res,
-          faltas: novasFaltas,
-          status: novasFaltas > 10 ? "Reprovado por Faltas" : res.status
-        };
+        return { ...res, faltas: novasFaltas, status: novasFaltas > 10 ? "Reprovado por Faltas" : res.status };
       }
       return res;
     }));
   };
 
-  // Filtra os dados do aluno atualmente logado/selecionado
+  // Seleções Atuais de Contexto
+  const currentResidenciaObj = residencias.find(r => r.id === selectedResidencia);
+  const currentDisciplinaObj = disciplinas.find(d => d.id === selectedDisciplina);
+  const filtradasDisciplinas = disciplinas.filter(d => d.residenciaId === selectedResidencia);
+  const filtradosResidentes = residentes.filter(r => r.disciplinaId === selectedDisciplina);
+  const filtradosAvisos = avisos.filter(a => a.disciplinaId === selectedDisciplina);
   const alunoLogado = residentes.find(r => r.id === selectedStudentId);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
       
-      {/* SIMULADOR DE PERMISSÕES NO TOPO (Para fins de teste e apresentação) */}
-      <div className="bg-slate-900 text-white px-6 py-2 flex flex-wrap items-center justify-between text-xs border-b border-slate-700">
+      {/* CONTROLADOR DE AMBIENTE / ROLES */}
+      <div className="bg-slate-900 text-white px-6 py-2.5 flex flex-wrap items-center justify-between text-xs border-b border-slate-700 shadow-md">
         <div className="flex items-center space-x-2 font-medium">
-          <ShieldAlert className="text-amber-500 w-4 h-4" />
-          <span>Ambiente de Simulação de Níveis de Acesso:</span>
+          <ShieldAlert className="text-teal-400 w-4 h-4" />
+          <span>Seletor de Perfil Institucional:</span>
         </div>
         <div className="flex items-center space-x-4 my-1 sm:my-0">
-          <div className="flex items-center space-x-2">
-            <label className="font-semibold text-slate-300">Visualizar como:</label>
-            <select 
-              value={userRole} 
-              onChange={(e) => { setUserRole(e.target.value); setActiveTab('curso'); }}
-              className="bg-slate-800 text-white rounded px-2 py-1 border border-slate-600 focus:outline-none"
-            >
-              <option value="professor">👨‍🏫 Coordenador / Professor</option>
-              <option value="aluno">🎓 Residente (Aluno)</option>
-            </select>
-          </div>
+          <select 
+            value={userRole} 
+            onChange={(e) => { 
+              setUserRole(e.target.value); 
+              setActiveTab(e.target.value === 'admin' ? 'config-residencia' : 'visao-modulo'); 
+            }}
+            className="bg-slate-800 text-white rounded px-3 py-1 border border-slate-600 focus:outline-none font-semibold text-xs"
+          >
+            <option value="admin">⚙️ SUPER ADMIN / COREMU</option>
+            <option value="professor">👨‍🏫 PRECEPTOR / PROFESSOR</option>
+            <option value="aluno">🎓 RESIDENTE / ALUNO</option>
+          </select>
 
           {userRole === 'aluno' && (
-            <div className="flex items-center space-x-2">
-              <label className="font-semibold text-slate-300">Selecionar Aluno:</label>
-              <select 
-                value={selectedStudentId} 
-                onChange={(e) => setSelectedStudentId(parseInt(e.target.value))}
-                className="bg-slate-800 text-white rounded px-2 py-1 border border-slate-600 focus:outline-none"
-              >
-                {residentes.map(r => (
-                  <option key={r.id} value={r.id}>{r.nome.split(' ')[0]}</option>
-                ))}
-              </select>
-            </div>
+            <select 
+              value={selectedStudentId} 
+              onChange={(e) => setSelectedStudentId(parseInt(e.target.value))}
+              className="bg-slate-800 text-white rounded px-2 py-1 border border-slate-600 focus:outline-none"
+            >
+              {residentes.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}
+            </select>
           )}
         </div>
       </div>
 
-      {/* Header Principal baseado no padrão Moinhos de Vento */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center space-x-4">
-          <div className="bg-teal-700 text-white p-2 rounded-lg font-bold tracking-wider text-xs shadow-inner">
+      {/* HEADER DE MARCA INSTITUCIONAL */}
+      <header className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-xs">
+        <div className="flex items-center space-x-3">
+          <div className="bg-gradient-to-br from-teal-700 to-teal-900 text-white p-2 rounded-xl font-black text-xs tracking-wider shadow-sm">
             COREMU
           </div>
           <div>
-            <h1 className="text-sm font-bold text-slate-900">Residência Multiprofissional em Atenção Básica</h1>
-            <p className="text-[11px] text-slate-500">Saúde da Família e Comunidade • Ano Corrente 2026</p>
+            <h1 className="text-sm font-extrabold text-slate-900">Plataforma Unificada de Residências em Saúde</h1>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Hospital de Clínicas & Unidades Adscritas</p>
           </div>
         </div>
-        <nav className="hidden md:flex space-x-6 text-xs font-medium text-slate-600">
-          <button className="hover:text-teal-700 transition">Início</button>
-          <button className="text-teal-700 border-b-2 border-teal-700 pb-1">Minhas Disciplinas</button>
-        </nav>
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-semibold text-xs">
-            {userRole === 'professor' ? 'PROF' : 'RES'}
+        <div className="flex items-center space-x-4">
+          <div className="text-right hidden sm:block">
+            <span className="text-xs font-bold block text-slate-800">Seletor de Programa:</span>
+            <select 
+              value={selectedResidencia}
+              onChange={(e) => { setSelectedResidencia(e.target.value); }}
+              className="text-xs bg-slate-100 text-slate-700 font-medium p-1 rounded border border-slate-200 mt-0.5 focus:outline-none"
+            >
+              {residencias.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}
+            </select>
           </div>
-          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded">
-            {userRole === 'professor' ? 'Coordenação/Docente' : 'Visão do Residente'}
-          </span>
         </div>
       </header>
 
-      {/* Sub-Header da Disciplina Atual */}
-      <div className="bg-white border-b border-slate-200 px-6 py-5 shadow-xs">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-wrap justify-between items-start gap-2">
-            <div>
-              <span className="text-[10px] font-semibold text-teal-700 uppercase tracking-wider bg-teal-50 px-2.5 py-1 rounded-full">R1 / R2 Coremu</span>
-              <h2 className="text-xl font-bold text-slate-900 mt-2">RMAB001 - Territorialização e Diagnóstico de Saúde da Comunidade</h2>
-            </div>
-            {userRole === 'aluno' && (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs">
-                <p className="text-slate-500">Residente Autenticado:</p>
-                <p className="font-bold text-slate-800">{alunoLogado?.nome}</p>
-              </div>
-            )}
-          </div>
-          
-          {/* Navegação de Abas Internas (Estilo Moodle moderno) */}
-          <div className="flex space-x-2 mt-6 border-b border-slate-200">
-            <button
-              onClick={() => setActiveTab('curso')}
-              className={`px-4 py-2 font-medium text-xs transition-all rounded-t-lg -mb-px ${
-                activeTab === 'curso' 
-                  ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200 font-semibold' 
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-              }`}
-            >
-              📚 Conteúdo do Módulo
-            </button>
-            
-            {userRole === 'professor' ? (
-              <>
-                <button
-                  onClick={() => setActiveTab('frequencia')}
-                  className={`px-4 py-2 font-medium text-xs transition-all rounded-t-lg -mb-px ${
-                    activeTab === 'frequencia' 
-                      ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200 font-semibold' 
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                  }`}
-                >
-                  📅 Diário de Frequência (Geral)
-                </button>
-                <button
-                  onClick={() => setActiveTab('notas')}
-                  className={`px-4 py-2 font-medium text-xs transition-all rounded-t-lg -mb-px ${
-                    activeTab === 'notas' 
-                      ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200 font-semibold' 
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                  }`}
-                >
-                  📊 Central de Notas e Pareceres
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => setActiveTab('boletim-aluno')}
-                className={`px-4 py-2 font-medium text-xs transition-all rounded-t-lg -mb-px ${
-                  activeTab === 'boletim-aluno' 
-                    ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200 font-semibold' 
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                }`}
-              >
-                📊 Meu Boletim & Frequência
-              </button>
-            )}
-          </div>
+      {/* NAVEGAÇÃO DINÂMICA DE ACORDO COM O PERFIL */}
+      <div className="bg-white border-b border-slate-200 px-6 pt-2">
+        <div className="max-w-7xl mx-auto flex space-x-2 overflow-x-auto">
+          {userRole === 'admin' && (
+            <>
+              <button onClick={() => setActiveTab('config-residencia')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'config-residencia' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>🏢 Estruturar Residências</button>
+              <button onClick={() => setActiveTab('config-disciplinas')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'config-disciplinas' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📚 Nova Disciplina / Ementa</button>
+              <button onClick={() => setActiveTab('config-avisos')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'config-avisos' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📢 Lançar Avisos Globais</button>
+            </>
+          )}
+          {(userRole === 'professor' || userRole === 'aluno') && (
+            <>
+              <button onClick={() => setActiveTab('visao-modulo')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'visao-modulo' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📖 Mural e Ementas</button>
+              {userRole === 'professor' && (
+                <>
+                  <button onClick={() => setActiveTab('prof-frequencia')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'prof-frequencia' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📅 Diário de Frequência</button>
+                  <button onClick={() => setActiveTab('prof-notas')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'prof-notas' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📊 Caderneta de Notas</button>
+                </>
+              )}
+              {userRole === 'aluno' && (
+                <button onClick={() => setActiveTab('aluno-boletim')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'aluno-boletim' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📈 Meu Boletim Individual</button>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Conteúdo Principal */}
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        
-        {/* ABA 1: CONTEÚDO DO CURSO (Comum para ambos, mas com ações diferentes) */}
-        {activeTab === 'curso' && (
-          <div className="space-y-5">
-            
-            {/* Bloco Geral: Plano e Cronograma */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-              <div 
-                className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer hover:bg-slate-100"
-                onClick={() => toggleSection('geral')}
-              >
-                <div className="flex items-center space-x-3">
-                  <ClipboardList className="text-slate-500 w-4 h-4" />
-                  <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Documentos Norteadores e Cronogramas</h3>
-                </div>
-                {expandedSections.geral ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </div>
-              {expandedSections.geral && (
-                <div className="p-4 space-y-3 text-xs text-slate-600 bg-white">
-                  <p>Abaixo estão disponibilizados as referências técnicas obrigatórias para as atividades na Unidade Básica de Saúde (UBS) de atuação.</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                    {['Plano de Ensino 2026.pdf', 'Cronograma de Rotações UBS.pdf', 'Diretrizes Coremu APS.pdf'].map((doc, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2.5 border border-slate-100 rounded-lg bg-slate-50">
-                        <div className="flex items-center space-x-2 truncate">
-                          <FileText className="text-red-500 w-4 h-4 flex-shrink-0" />
-                          <span className="truncate font-medium text-slate-700">{doc}</span>
-                        </div>
-                        <MoreVertical className="w-4 h-4 text-slate-400" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* CONTEÚDO PRINCIPAL DO WORKSPACE */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+        {/* SELECTOR DE COMPONENTE CURRICULAR ATIVO */}
+        {(userRole === 'professor' || userRole === 'aluno') && (
+          <div className="bg-gradient-to-r from-teal-50 to-emerald-50 p-4 rounded-xl border border-teal-100 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <span className="text-[9px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded uppercase">Componente Curricular em Foco:</span>
+              <h2 className="text-base font-black text-slate-900 mt-1">{currentDisciplinaObj?.codigo} - {currentDisciplinaObj?.titulo}</h2>
             </div>
-
-            {/* Mural de Boas-Vindas */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-              <div 
-                className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer hover:bg-slate-100"
-                onClick={() => toggleSection('mural')}
+            <div className="flex items-center space-x-2">
+              <label className="text-xs font-bold text-slate-600">Alternar Disciplina:</label>
+              <select 
+                value={selectedDisciplina} 
+                onChange={(e) => setSelectedDisciplina(e.target.value)}
+                className="text-xs bg-white text-slate-800 p-1.5 rounded-lg border border-slate-200 font-medium focus:outline-none shadow-xs"
               >
-                <div className="flex items-center space-x-3">
-                  <MessageSquare className="text-teal-600 w-4 h-4" />
-                  <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Mural de Avisos da Disciplina</h3>
-                </div>
-                {expandedSections.mural ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </div>
-              {expandedSections.mural && (
-                <div className="p-5 text-xs text-slate-600 border-l-4 border-teal-600 bg-white space-y-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-bold text-slate-900 text-sm">Mapeamento e Territorialização em Saúde</span>
-                    {userRole === 'professor' && <span className="text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded font-medium">Postado por Você</span>}
-                  </div>
-                  <p>Prezados residentes, o objetivo central deste módulo consiste em analisar criticamente o território adscrito das suas respectivas UBS. Desenvolveremos competências sobre estimativa rápida, identificação de vulnerabilidades e levantamento de indicadores epidemiológicos locais.</p>
-                </div>
-              )}
+                {filtradasDisciplinas.map(d => <option key={d.id} value={d.id}>{d.titulo}</option>)}
+              </select>
             </div>
-
-            {/* Materiais Didáticos */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-              <div 
-                className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer hover:bg-slate-100"
-                onClick={() => toggleSection('materiais')}
-              >
-                <div className="flex items-center space-x-3">
-                  <BookOpen className="text-blue-600 w-4 h-4" />
-                  <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Materiais Complementares de Campo</h3>
-                </div>
-                {expandedSections.materiais ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </div>
-              {expandedSections.materiais && (
-                <div className="p-4 space-y-3 bg-white">
-                  <div className="p-3.5 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2 text-xs">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="text-[9px] font-semibold uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Material de Apoio</span>
-                        <h4 className="font-bold text-slate-900 mt-1">Metodologia de Estimativa Rápria para Diagnósticos de Saúde</h4>
-                      </div>
-                    </div>
-                    <p className="text-slate-600">Texto base contendo os roteiros de entrevistas e análise de dados para o diagnóstico demográfico.</p>
-                    <div className="inline-flex items-center space-x-2 p-1.5 bg-white rounded border border-slate-200 text-slate-700 font-medium">
-                      <FileText className="text-red-500 w-3.5 h-3.5" />
-                      <span>Manual_Estimativa_Rapida_APS.pdf</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Atividades Avaliativas / Entrega de Portfólio */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-              <div 
-                className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer hover:bg-slate-100"
-                onClick={() => toggleSection('atividades')}
-              >
-                <div className="flex items-center space-x-3">
-                  <Award className="text-purple-600 w-4 h-4" />
-                  <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Atividades Práticas Obrigatórias</h3>
-                </div>
-                {expandedSections.atividades ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </div>
-              {expandedSections.atividades && (
-                <div className="p-4 space-y-3 bg-white text-xs">
-                  <div className="p-4 border border-purple-100 rounded-xl bg-purple-50/30 space-y-3">
-                    <div className="flex flex-wrap justify-between items-start gap-2">
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-sm">GA 1 - Entrega do Projeto Terapêutico Singular (PTS)</h4>
-                        <p className="text-slate-500 mt-0.5">Foco em família de alta vulnerabilidade social na comunidade.</p>
-                      </div>
-                      <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-2.5 py-1 rounded-full">Prazo Limite: 18/08/2026</span>
-                    </div>
-
-                    {/* Visão Dinâmica de Acordo com o Perfil logado */}
-                    {userRole === 'aluno' ? (
-                      <div className="bg-white p-3 border border-purple-100 rounded-lg mt-2">
-                        <p className="font-semibold text-slate-700 mb-2">Área de Envio do Residente:</p>
-                        {fileSubmitted ? (
-                          <div className="flex items-center space-x-2 text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-200 font-medium">
-                            <Check className="w-4 h-4" />
-                            <span>Arquivo "PTS_Familia_Microarea3_Final.pdf" enviado com sucesso!</span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap items-center gap-3">
-                            <button 
-                              onClick={() => setFileSubmitted(true)}
-                              className="bg-purple-700 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-purple-800 flex items-center space-x-1.5 transition"
-                            >
-                              <Send className="w-3.5 h-3.5" />
-                              <span>Simular Upload de Arquivo</span>
-                            </button>
-                            <span className="text-slate-400 text-[11px]">Nenhum arquivo anexado ainda.</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-slate-100 text-slate-700 p-2 rounded border border-slate-200 text-[11px] flex items-center space-x-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
-                        <span><strong>Visão do Professor:</strong> Os residentes enviarão arquivos em PDF nesta seção. Você poderá gerenciar e atribuir notas na aba "Central de Notas".</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
           </div>
         )}
 
-        {/* ABA 2 (PROFESSOR): DIÁRIO DE FREQUÊNCIA GERAL */}
-        {activeTab === 'frequencia' && userRole === 'professor' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-            <div className="flex flex-wrap justify-between items-center gap-2">
-              <div>
-                <h3 className="font-bold text-base text-slate-900">Diário de Presença Multiprofissional</h3>
-                <p className="text-xs text-slate-500">Clique nos checkboxes para simular presenças/faltas e atualizar o diário imediatamente.</p>
+        {/* ==================== TABS DO SUPER ADMIN ==================== */}
+        {activeTab === 'config-residencia' && userRole === 'admin' && (
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5"><Layers className="w-4 h-4 text-teal-700"/><span>Criação de Novos Programas de Residência</span></h3>
+            <form onSubmit={addResidencia} className="flex gap-2 max-w-md">
+              <input type="text" value={newResidenciaNome} onChange={(e) => setNewResidenciaNome(e.target.value)} placeholder="Ex: Urgência e Emergência" className="text-xs flex-1 border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-teal-500 focus:outline-none" />
+              <button type="submit" className="bg-teal-700 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-teal-800 flex items-center space-x-1"><Plus className="w-3.5 h-3.5"/><span>Cadastrar</span></button>
+            </form>
+            <div className="border border-slate-100 rounded-lg divide-y divide-slate-100 text-xs">
+              {residencias.map(r => (
+                <div key={r.id} className="p-3 flex justify-between items-center hover:bg-slate-50 font-medium text-slate-800">
+                  <span>🎓 Componente Coremu: <strong>{r.nome}</strong></span>
+                  <span className="text-[10px] font-bold text-slate-400">ID unificado: {r.id}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'config-disciplinas' && userRole === 'admin' && (
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5"><FolderPlus className="w-4 h-4 text-blue-600"/><span>Inclusão de Disciplinas e Matrizes de Ementa</span></h3>
+            <form onSubmit={addDisciplina} className="space-y-3 max-w-xl bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div className="grid grid-cols-3 gap-2">
+                <input type="text" value={newDiscCodigo} onChange={(e) => setNewDiscCodigo(e.target.value)} placeholder="Código (Ex: RMAB003)" className="text-xs border border-slate-300 rounded p-2 bg-white" />
+                <input type="text" value={newDiscTitulo} onChange={(e) => setNewDiscTitulo(e.target.value)} placeholder="Nome do Componente" className="text-xs col-span-2 border border-slate-300 rounded p-2 bg-white" />
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-[11px] font-medium">
-                Carga Horária Total: 60h
+              <textarea value={newDiscEmenta} onChange={(e) => setNewDiscEmenta(e.target.value)} placeholder="Descrição da ementa programática..." className="text-xs w-full border border-slate-300 rounded p-2 bg-white h-20" />
+              <button type="submit" className="bg-teal-700 text-white px-4 py-2 rounded text-xs font-bold hover:bg-teal-800">Salvar na Residência Atual</button>
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'config-avisos' && userRole === 'admin' && (
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5"><Bell className="w-4 h-4 text-amber-500"/><span>Mural Geral de Avisos e Comunicação</span></h3>
+            <form onSubmit={addAviso} className="space-y-3 max-w-xl">
+              <input type="text" value={newAvisoTitulo} onChange={(e) => setNewAvisoTitulo(e.target.value)} placeholder="Título do Comunicado Importante" className="text-xs w-full border border-slate-300 rounded p-2" />
+              <textarea value={newAvisoConteudo} onChange={(e) => setNewAvisoConteudo(e.target.value)} placeholder="Texto completo do aviso..." className="text-xs w-full border border-slate-300 rounded p-2 h-24" />
+              <button type="submit" className="bg-amber-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-amber-700">Publicar Aviso no Mural</button>
+            </form>
+          </div>
+        )}
+
+        {/* ==================== VISION COMPARTILHADA: MURAL E EMENTAS ==================== */}
+        {activeTab === 'visao-modulo' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 space-y-4">
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Ementa do Componente</h3>
+                <p className="text-xs text-slate-700 leading-relaxed font-medium bg-slate-50 p-3.5 rounded-xl border border-slate-100">{currentDisciplinaObj?.ementa}</p>
+              </div>
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Mural de Avisos Integrados</h3>
+                {filtradosAvisos.length === 0 ? <p className="text-xs italic text-slate-400">Nenhum aviso vigente para este módulo.</p> : 
+                  filtradosAvisos.map(a => (
+                    <div key={a.id} className="p-4 border-l-4 border-teal-600 bg-teal-50/20 rounded-r-xl space-y-1.5 text-xs">
+                      <div className="flex justify-between font-bold text-slate-900">
+                        <span>{a.titulo}</span>
+                        <span className="text-[10px] text-slate-400">{a.data}</span>
+                      </div>
+                      <p className="text-slate-600">{a.conteudo}</p>
+                      <p className="text-[10px] text-slate-400 font-semibold">— Emitido por: {a.autor}</p>
+                    </div>
+                  ))
+                }
               </div>
             </div>
+            <div className="space-y-4">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Materiais Complementares</h3>
+                <div className="p-2.5 border border-slate-100 bg-slate-50 rounded-lg text-xs font-medium flex items-center justify-between">
+                  <span className="truncate">Projeto_Politico_Pedagogico.pdf</span>
+                  <FileText className="text-red-500 w-4 h-4 flex-shrink-0" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-            <div className="overflow-x-auto border border-slate-200 rounded-lg">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold">
+        {/* ==================== PAINEL DO PROFESSOR: FREQUÊNCIA ==================== */}
+        {activeTab === 'prof-frequencia' && userRole === 'professor' && (
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="font-bold text-sm text-slate-900">Controle Diário de Frequência das Atividades Coletivas</h3>
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
                     <th className="p-3">Nome do Residente</th>
-                    <th className="p-3 text-center">Faltas Acumuladas</th>
-                    <th className="p-3 text-center bg-teal-50 text-teal-900">Semana 1</th>
-                    <th className="p-3 text-center bg-teal-50 text-teal-900">Semana 2</th>
-                    <th className="p-3 text-center bg-slate-100 text-slate-900">Ações</th>
+                    <th className="p-3 text-center">Faltas Computadas</th>
+                    <th className="p-3 text-center">Encontro 1 (Presença)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-600">
-                  {residentes.map((res) => (
-                    <tr key={res.id} className="hover:bg-slate-50/50 transition">
-                      <td className="p-3 font-medium text-slate-900">{res.nome}</td>
-                      <td className="p-3 text-center font-bold text-amber-700 bg-amber-50/30">{res.faltas}</td>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {filtradosResidentes.map(r => (
+                    <tr key={r.id} className="hover:bg-slate-50">
+                      <td className="p-3 text-slate-900">{r.nome}</td>
+                      <td className="p-3 text-center font-bold text-amber-700">{r.faltas}</td>
                       <td className="p-3 text-center">
-                        <input 
-                          type="checkbox" 
-                          defaultChecked 
-                          onChange={(e) => handlePresencaChange(res.id, e.target.checked)}
-                          className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4" 
-                        />
-                      </td>
-                      <td className="p-3 text-center">
-                        <input 
-                          type="checkbox" 
-                          defaultChecked={res.faltas === 0} 
-                          onChange={(e) => handlePresencaChange(res.id, e.target.checked)}
-                          className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4" 
-                        />
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className="text-[10px] text-slate-400 font-medium">Atualizado automaticamente</span>
+                        <input type="checkbox" defaultChecked onChange={(e) => handlePresencaChange(r.id, e.target.checked)} className="rounded text-teal-700 focus:ring-teal-500 w-4 h-4" />
                       </td>
                     </tr>
                   ))}
@@ -424,168 +333,58 @@ export default function ResidencyPortal() {
           </div>
         )}
 
-        {/* ABA 3 (PROFESSOR): CENTRAL DE NOTAS E PARECERES GERAL */}
-        {activeTab === 'notas' && userRole === 'professor' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-            <div>
-              <h3 className="font-bold text-base text-slate-900">Planilha de Avaliação por Competências</h3>
-              <p className="text-xs text-slate-500">Modifique os valores dos campos numéricos para recalcular a média final e o parecer pedagógico.</p>
-            </div>
-
-            <div className="overflow-x-auto border border-slate-200 rounded-lg">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold">
+        {/* ==================== PAINEL DO PROFESSOR: CENTRAL DE NOTAS ==================== */}
+        {activeTab === 'prof-notas' && userRole === 'professor' && (
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="font-bold text-sm text-slate-900">Lançamento de Avaliações Somativas & Pareceres</h3>
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
                     <th className="p-3">Residente</th>
-                    <th className="p-3 text-center">Média GA</th>
-                    <th className="p-3 text-center">Média <br/>GB</th>
-                    <th className="p-3 text-center">Exame <br/>GC</th>
-                    <th className="p-3 text-center font-bold bg-slate-100">Resultado Atual</th>
+                    <th className="p-3 text-center">GA</th>
+                    <th className="p-3 text-center">GB</th>
+                    <th className="p-3 text-center">GC</th>
+                    <th className="p-3 text-center">Resultado</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-600">
-                  {residentes.map((res) => {
-                    const ga = res.ga || 0;
-                    const gb = res.gb || 0;
-                    const gc = res.gc !== "" ? res.gc : null;
-                    let mFinal = (ga + gb) / 2;
-                    if (gc !== null) mFinal = (mFinal + gc) / 2;
-
-                    return (
-                      <React.Fragment key={res.id}>
-                        <tr className="bg-white font-medium text-slate-900">
-                          <td className="p-3 border-t border-slate-100 font-semibold text-slate-900 bg-slate-50/40">{res.nome}</td>
-                          <td className="p-3 text-center border-t border-slate-100">
-                            <input 
-                              type="number" 
-                              step="0.1"
-                              value={res.ga} 
-                              onChange={(e) => handleNotaChange(res.id, 'ga', e.target.value)}
-                              className="w-14 text-center border border-slate-200 rounded p-1 font-medium text-slate-800" 
-                            />
-                          </td>
-                          <td className="p-3 text-center border-t border-slate-100">
-                            <input 
-                              type="number" 
-                              step="0.1"
-                              value={res.gb} 
-                              onChange={(e) => handleNotaChange(res.id, 'gb', e.target.value)}
-                              className="w-14 text-center border border-slate-200 rounded p-1 font-medium text-slate-800" 
-                            />
-                          </td>
-                          <td className="p-3 text-center border-t border-slate-100">
-                            <input 
-                              type="number" 
-                              step="0.1"
-                              value={res.gc} 
-                              placeholder="-"
-                              onChange={(e) => handleNotaChange(res.id, 'gc', e.target.value)}
-                              className="w-14 text-center border border-slate-200 rounded p-1 font-medium text-slate-800 bg-purple-50/50" 
-                            />
-                          </td>
-                          <td className="p-3 text-center border-t border-slate-100 bg-slate-50 font-bold">
-                            <div className="flex flex-col items-center space-y-1">
-                              <span className="text-slate-900 text-xs">{mFinal.toFixed(1)}</span>
-                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                                res.status.includes("Aprovado") ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                              }`}>
-                                {res.status}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {/* Linha expandida do Parecer Descritivo do Professor */}
-                        <tr className="bg-white">
-                          <td colSpan="5" className="p-2 px-4 pb-4 border-b border-slate-200 text-[11px] text-slate-500 bg-white">
-                            <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded border border-slate-100">
-                              <span className="font-bold text-slate-700">Parecer da Coordenação:</span>
-                              <span className="italic">"{res.parecer}"</span>
-                            </div>
-                          </td>
-                        </tr>
-                      </React.Fragment>
-                    );
-                  })}
+                <tbody className="divide-y divide-slate-200">
+                  {filtradosResidentes.map(r => (
+                    <tr key={r.id} className="hover:bg-slate-50/50">
+                      <td className="p-3 font-semibold text-slate-900">{r.nome}</td>
+                      <td className="p-3 text-center"><input type="number" step="0.1" value={r.ga} onChange={(e) => handleNotaChange(r.id, 'ga', e.target.value)} className="w-12 text-center p-1 border border-slate-200 rounded" /></td>
+                      <td className="p-3 text-center"><input type="number" step="0.1" value={r.gb} onChange={(e) => handleNotaChange(r.id, 'gb', e.target.value)} className="w-12 text-center p-1 border border-slate-200 rounded" /></td>
+                      <td className="p-3 text-center"><input type="number" step="0.1" value={r.gc} placeholder="-" onChange={(e) => handleNotaChange(r.id, 'gc', e.target.value)} className="w-12 text-center p-1 border border-slate-200 rounded" /></td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'Aprovado' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>{r.status}</span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* ABA 4 (ALUNO): VISÃO DO MEU BOLETIM E FREQUÊNCIA PRIVADOS */}
-        {activeTab === 'boletim-aluno' && userRole === 'aluno' && (
+        {/* ==================== PAINEL DO ALUNO: BOLETIM PRIVADO ==================== */}
+        {activeTab === 'aluno-boletim' && userRole === 'aluno' && (
           <div className="space-y-6">
-            
-            {/* Resumo do Boletim Individual */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <GraduationCap className="text-teal-700 w-5 h-5" />
-                  <h3 className="font-bold text-base text-slate-900">Meu Desempenho e Avaliações</h3>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                  alunoLogado?.status.includes("Aprovado") ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                }`}>
-                  Status: {alunoLogado?.status}
-                </span>
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5"><GraduationCap className="text-teal-700 w-5 h-5"/><span>Extrato de Avaliações e Notas Individuais</span></h3>
+                <span className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full uppercase tracking-wider">Módulo Corrente</span>
               </div>
-
-              {/* Grid de Notas do Aluno Logado */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                  <p className="text-[10px] uppercase font-semibold text-slate-400">Média Módulo GA</p>
-                  <p className="text-xl font-bold text-slate-800 mt-1">{alunoLogado?.ga || '-'}</p>
-                </div>
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                  <p className="text-[10px] uppercase font-semibold text-slate-400">Média Módulo GB</p>
-                  <p className="text-xl font-bold text-slate-800 mt-1">{alunoLogado?.gb || '-'}</p>
-                </div>
-                <div className="p-3 bg-purple-50/50 border border-purple-100 rounded-lg">
-                  <p className="text-[10px] uppercase font-semibold text-purple-700">Nota Exame GC</p>
-                  <p className="text-xl font-bold text-purple-900 mt-1">{alunoLogado?.gc !== "" ? alunoLogado?.gc : 'Não Realizado'}</p>
-                </div>
-                <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg">
-                  <p className="text-[10px] uppercase font-bold text-teal-800">Nota Final do Módulo</p>
-                  <p className="text-xl font-bold text-teal-900 mt-1">
-                    {(((alunoLogado?.ga || 0) + (alunoLogado?.gb || 0)) / 2).toFixed(1)}
-                  </p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200"><p className="text-[10px] uppercase font-bold text-slate-400">Avaliação GA</p><p className="text-xl font-black text-slate-800 mt-1">{alunoLogado?.ga || '-'}</p></div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200"><p className="text-[10px] uppercase font-bold text-slate-400">Avaliação GB</p><p className="text-xl font-black text-slate-800 mt-1">{alunoLogado?.gb || '-'}</p></div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200"><p className="text-[10px] uppercase font-bold text-slate-400">Exame GC</p><p className="text-xl font-black text-slate-800 mt-1">{alunoLogado?.gc || 'N/A'}</p></div>
+                <div className="p-3 bg-teal-50 rounded-xl border border-teal-200"><p className="text-[10px] uppercase font-bold text-teal-800">Resultado Final</p><p className="text-xl font-black text-teal-900 mt-1">{alunoLogado?.status}</p></div>
               </div>
-
-              {/* Parecer Descritivo Visível apenas para o aluno correspondente */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
-                <p className="font-bold text-slate-700 flex items-center space-x-1">
-                  <User className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Feedback Pedagógico do Preceptor:</span>
-                </p>
-                <p className="italic text-slate-600 mt-1.5">"{alunoLogado?.parecer}"</p>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs leading-relaxed">
+                <span className="font-bold block text-slate-800">Feedback Qualitativo do Preceptor Responsável:</span>
+                <p className="italic text-slate-600 mt-1">"{alunoLogado?.parecer}"</p>
               </div>
             </div>
-
-            {/* Controle de Frequência Individual */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-              <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
-                <Calendar className="text-blue-600 w-5 h-5" />
-                <h3 className="font-bold text-base text-slate-900">Extrato de Frequência de Campo</h3>
-              </div>
-              
-              <div className="flex flex-wrap items-center justify-between gap-4 text-xs">
-                <div className="space-y-1">
-                  <p className="text-slate-500">Total de faltas acumuladas neste componente:</p>
-                  <p className="text-lg font-bold text-slate-900">
-                    {alunoLogado?.faltas} <span className="text-xs font-normal text-slate-400">faltas registradas</span>
-                  </p>
-                </div>
-                <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-center min-w-[150px]">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Assiduidade</p>
-                  <p className="text-lg font-bold text-emerald-700 mt-0.5">
-                    {alunoLogado ? (100 - (alunoLogado.faltas * 2.5)).toFixed(1) : 100}%
-                  </p>
-                  <p className="text-[9px] text-slate-400 mt-0.5">Exigido por lei: Mínimo 75%</p>
-                </div>
-              </div>
-            </div>
-
           </div>
         )}
 
