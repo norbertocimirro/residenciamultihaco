@@ -4,387 +4,344 @@ import {
   CheckCircle, FileSpreadsheet, ChevronDown, ChevronUp, 
   Plus, Edit3, MoreVertical, ClipboardList, Award, ShieldAlert,
   User, GraduationCap, LayoutDashboard, Send, Check, AlertCircle,
-  Briefcase, FolderPlus, Settings, Bell, Trash2, Layers
+  Briefcase, FolderPlus, Settings, Bell, Trash2, Layers, Archive, Lock, Unlock
 } from 'lucide-react';
 
-export default function UniversalResidencyPortal() {
-  // Controle Geral de Nível de Acesso: 'admin' | 'professor' | 'aluno'
-  const [userRole, setUserRole] = useState('admin');
-  const [activeTab, setActiveTab] = useState('config-residencia');
-  
-  // Estado das Residências Cadastradas (Multi-Residências)
-  const [residencias, setResidencias] = useState([
-    { id: 'ab', nome: "Atenção Básica: Saúde da Família e Comunidade" },
-    { id: 'sm', nome: "Saúde Mental e Coletiva" },
-    { id: 'ue', nome: "Urgência, Emergência e Intensivismo" }
-  ]);
-  const [selectedResidencia, setSelectedResidencia] = useState('ab');
+export default function EternalResidencyEnterprise() {
+  // Controle de Autenticação / Papel no Sistema
+  // 'gestor_coremu' -> Cria programas, ementas, turmas, gerencia ciclos e arquiva históricos.
+  // 'preceptor_docente' -> Lança notas de competência (GA, GB, GC) e frequências na sua disciplina.
+  // 'residente_aluno' -> Visão limpa e restrita ao seu boletim, portfólio e histórico individual.
+  const [userRole, setUserRole] = useState('gestor_coremu');
+  const [activeTab, setActiveTab] = useState('gestao-ciclos');
 
-  // Estado Global de Disciplinas/Módulos
-  const [disciplinas, setDisciplinas] = useState([
-    { id: 'rm001', residenciaId: 'ab', codigo: 'RMAB001', titulo: 'Territorialização e Diagnóstico de Saúde', ementa: 'Análise demográfica, epidemiológica e socioeconômica do território adscrito. Estimativa rápida e mapeamento de vulnerabilidades.' },
-    { id: 'rm002', residenciaId: 'ab', codigo: 'RMAB002', titulo: 'Clínica Ampliada e Projeto Terapêutico Singular', ementa: 'Discussão de casos complexos, genograma, ecomapa e articulação de redes vivas de cuidado na Atenção Primária.' },
-    { id: 'rm003', residenciaId: 'sm', codigo: 'RMSM001', titulo: 'Rede de Atenção Psicossocial (RAPS)', ementa: 'Organização dos serviços de saúde mental, matriciamento e clínica da reforma psiquiátrica.' }
+  // 1. BANCO DE DADOS PARAMETRIZADO: CICLOS ACADÊMICOS (Eternidade do Sistema)
+  const [ciclos, setCiclos] = useState([
+    { id: '2025_1', nome: 'Ciclo Letivo 2025/1', status: 'arquivado' },
+    { id: '2025_2', nome: 'Ciclo Letivo 2025/2', status: 'arquivado' },
+    { id: '2026_1', nome: 'Ciclo Letivo 2026/1', status: 'ativo' },
+    { id: '2026_2', nome: 'Ciclo Letivo 2026/2', status: 'planejamento' },
   ]);
-  const [selectedDisciplina, setSelectedDisciplina] = useState('rm001');
+  const [selectedCiclo, setSelectedCiclo] = useState('2026_1');
 
-  // Estado Global de Avisos/Mural
-  const [avisos, setAvisos] = useState([
-    { id: 1, disciplinaId: 'rm001', titulo: 'Mapeamento e Territorialização em Saúde', data: '17/07/2026', autor: 'Prof.ª Dra. Renata Gonçalves', conteudo: 'Prezados residentes, o objetivo central deste módulo consiste em analisar criticamente o território das suas respectivas UBS de atuação.' }
+  // 2. PROGRAMAS DE RESIDÊNCIA (Multi-residências vinculadas à COREMU)
+  const [programas, setProgramas] = useState([
+    { id: 'ab', nome: 'Residência Multiprofissional em Atenção Básica: Saúde da Família e Comunidade' },
+    { id: 'sm', nome: 'Residência Multiprofissional em Saúde Mental e Coletiva' },
+    { id: 'ue', nome: 'Residência em Urgência, Emergência e Intensivismo' }
   ]);
+  const [selectedPrograma, setSelectedPrograma] = useState('ab');
 
-  // Estado dos Alunos, Notas e Faltas (Unificado)
-  const [residentes, setResidentes] = useState([
-    { id: 1, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Ana Silva (Enfermagem)", faltas: 2, ga: 8.5, gb: 9.0, gc: "", status: "Aprovado", parecer: "Excelente desempenho nas atividades práticas de territorialização." },
-    { id: 2, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Bruno Costa (Odontologia)", faltas: 0, ga: 7.8, gb: 8.3, gc: "", status: "Aprovado", parecer: "Demonstra ótima integração com a equipe multiprofissional." },
-    { id: 3, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Carlos Souza (Psicologia)", faltas: 4, ga: 5.5, gb: 6.0, gc: 7.5, status: "Aprovado pelo Exame", parecer: "Necessita qualificar a entrega dos relatórios de campo." },
-    { id: 4, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Daniela Lima (Serviço Social)", faltas: 1, ga: 9.2, gb: 9.5, gc: "", status: "Aprovado", parecer: "Liderança destacada nas discussões de caso clínico." },
-    { id: 5, residenciaId: 'ab', disciplinaId: 'rm001', nome: "Eduardo Reis (Nutrição)", faltas: 12, ga: 4.0, gb: 2.5, gc: 0, status: "Reprovado por Faltas", parecer: "Excedeu o limite de faltas permitido no edital da Coremu." },
+  // 3. MATRIZ CURRICULAR (Ementário Geral gerenciado APENAS pelo Gestor)
+  const [matrizDisciplinas, setMatrizDisciplinas] = useState([
+    { id: 'm1', programaId: 'ab', codigo: 'RMAB001', titulo: 'Territorialização e Diagnóstico de Saúde Comunitária', ementa: 'Análise demográfica, epidemiológica e socioeconômica do território adscrito. Estimativa rápida e mapeamento de vulnerabilidades.' },
+    { id: 'm2', programaId: 'ab', codigo: 'RMAB002', titulo: 'Clínica Ampliada e Projeto Terapêutico Singular (PTS)', ementa: 'Discussão de casos complexos, genograma, ecomapa e articulação de redes vivas de cuidado na Atenção Primária.' },
+    { id: 'm3', programaId: 'sm', codigo: 'RMSM001', titulo: 'Rede de Atenção Psicossocial (RAPS)', ementa: 'Organização dos serviços de saúde mental, matriciamento e clínica da reforma psiquiátrica.' }
+  ]);
+  const [selectedDisciplina, setSelectedDisciplina] = useState('m1');
+
+  // 4. DIÁRIO DE NOTAS, FREQUÊNCIA E HISTÓRICO VINCULADO AO CICLO SELECIONADO
+  const [historicoNotas, setHistoricoNotas] = useState([
+    // Ciclo Ativo (2026/1)
+    { id: 'h1', cicloId: '2026_1', disciplinaId: 'm1', alunoId: 1, nome: "Ana Silva (Enfermagem)", ga: 8.5, gb: 9.0, gc: "", faltas: 2, parecer: "Excelente desempenho nas atividades práticas de campo." },
+    { id: 'h2', cicloId: '2026_1', disciplinaId: 'm1', alunoId: 2, nome: "Bruno Costa (Odontologia)", ga: 7.8, gb: 8.3, gc: "", faltas: 0, parecer: "Demonstra ótima integração com a equipe multiprofissional." },
+    { id: 'h3', cicloId: '2026_1', disciplinaId: 'm1', alunoId: 3, nome: "Carlos Souza (Psicologia)", ga: 5.5, gb: 6.0, gc: 7.5, faltas: 4, parecer: "Necessita qualificar a entrega dos relatórios finais." },
+    // Registro Congelado / Arquivado (2025/1) para demonstração de histórico imutável
+    { id: 'h4', cicloId: '2025_1', disciplinaId: 'm1', alunoId: 1, nome: "Ana Silva (Enfermagem)", ga: 9.0, gb: 9.5, gc: "", faltas: 1, parecer: "Aprovada com louvor no ciclo anterior." }
   ]);
   const [selectedStudentId, setSelectedStudentId] = useState(1);
 
-  // Estados de Formulário (Inclusão de Dados)
-  const [newResidenciaNome, setNewResidenciaNome] = useState('');
+  // Estados de Formulários de Gestão (Exclusivos do Gestor)
+  const [newCicloNome, setNewCicloNome] = useState('');
+  const [newProgNome, setNewProgNome] = useState('');
   const [newDiscCodigo, setNewDiscCodigo] = useState('');
   const [newDiscTitulo, setNewDiscTitulo] = useState('');
   const [newDiscEmenta, setNewDiscEmenta] = useState('');
-  const [newAvisoTitulo, setNewAvisoTitulo] = useState('');
-  const [newAvisoConteudo, setNewAvisoConteudo] = useState('');
 
-  // Handlers do Administrador
-  const addResidencia = (e) => {
+  // Lógica do Gestor: Criar Ciclos e Arquivar
+  const handleCriarCiclo = (e) => {
     e.preventDefault();
-    if (!newResidenciaNome) return;
-    const id = Math.random().toString(36).substr(2, 2);
-    setResidencias([...residencias, { id, nome: newResidenciaNome }]);
-    setNewResidenciaNome('');
+    if (!newCicloNome) return;
+    const id = 'ciclo_' + Date.now();
+    setCiclos([...ciclos, { id, nome: newCicloNome, status: 'planejamento' }]);
+    setNewCicloNome('');
   };
 
-  const addDisciplina = (e) => {
+  const handleAlternarStatusCiclo = (id, novoStatus) => {
+    setCiclos(prev => prev.map(c => c.id === id ? { ...c, status: novoStatus } : c));
+  };
+
+  // Lógica do Gestor: Incluir Disciplina na Matriz
+  const handleCriarDisciplina = (e) => {
     e.preventDefault();
     if (!newDiscCodigo || !newDiscTitulo) return;
-    const id = Math.random().toString(36).substr(2, 5);
-    setDisciplinas([...disciplinas, {
-      id, residenciaId: selectedResidencia, codigo: newDiscCodigo, titulo: newDiscTitulo, ementa: newDiscEmenta
+    const id = 'm_' + Date.now();
+    setMatrizDisciplinas([...matrizDisciplinas, {
+      id, programaId: selectedPrograma, codigo: newDiscCodigo, titulo: newDiscTitulo, ementa: newDiscEmenta
     }]);
     setNewDiscCodigo(''); setNewDiscTitulo(''); setNewDiscEmenta('');
   };
 
-  const addAviso = (e) => {
-    e.preventDefault();
-    if (!newAvisoTitulo || !newAvisoConteudo) return;
-    setAvisos([...avisos, {
-      id: Date.now(), disciplinaId: selectedDisciplina, titulo: newAvisoTitulo, data: '17/07/2026', autor: 'Coordenação Acadêmica', conteudo: newAvisoConteudo
-    }]);
-    setNewAvisoTitulo(''); setNewAvisoConteudo('');
-  };
-
-  // Handlers de Notas e Frequência (Professor)
-  const handleNotaChange = (id, campo, valor) => {
+  // Lógica do Preceptor: Modificar Notas (Apenas se o ciclo estiver 'ativo')
+  const handlePreceptorNota = (id, campo, valor) => {
+    const cicloIdAtual = ciclos.find(c => c.id === selectedCiclo);
+    if (cicloIdAtual?.status === 'arquivado') {
+      alert("⚠️ Erro de Segurança: Este ciclo está arquivado. Os registros históricos são imutáveis.");
+      return;
+    }
     const numValor = valor === "" ? "" : parseFloat(valor) || 0;
-    setResidentes(prev => prev.map(res => {
-      if (res.id === id) {
-        const updated = { ...res, [campo]: numValor };
-        const ga = updated.ga || 0; const gb = updated.gb || 0; const gc = updated.gc !== "" ? updated.gc : null;
-        let notaFinal = (ga + gb) / 2;
-        if (gc !== null) notaFinal = (notaFinal + gc) / 2;
-        updated.total = parseFloat(notaFinal.toFixed(2));
-        updated.status = updated.faltas > 10 ? "Reprovado por Faltas" : (notaFinal >= 7 ? "Aprovado" : "Em Exame (GC)");
-        return updated;
-      }
-      return res;
-    }));
+    setHistoricoNotas(prev => prev.map(item => item.id === id ? { ...item, [campo]: numValor } : item));
   };
 
-  const handlePresencaChange = (id, estavaPresente) => {
-    setResidentes(prev => prev.map(res => {
-      if (res.id === id) {
-        const novasFaltas = estavaPresente ? Math.max(0, res.faltas - 1) : res.faltas + 1;
-        return { ...res, faltas: novasFaltas, status: novasFaltas > 10 ? "Reprovado por Faltas" : res.status };
-      }
-      return res;
-    }));
-  };
-
-  // Seleções Atuais de Contexto
-  const currentResidenciaObj = residencias.find(r => r.id === selectedResidencia);
-  const currentDisciplinaObj = disciplinas.find(d => d.id === selectedDisciplina);
-  const filtradasDisciplinas = disciplinas.filter(d => d.residenciaId === selectedResidencia);
-  const filtradosResidentes = residentes.filter(r => r.disciplinaId === selectedDisciplina);
-  const filtradosAvisos = avisos.filter(a => a.disciplinaId === selectedDisciplina);
-  const alunoLogado = residentes.find(r => r.id === selectedStudentId);
+  // Filtros de Contexto Baseado nas Seleções Activas
+  const cicloAtivoObj = ciclos.find(c => c.id === selectedCiclo);
+  const programaAtivoObj = programas.find(p => p.id === selectedPrograma);
+  const disciplinasFiltradas = matrizDisciplinas.filter(m => m.programaId === selectedPrograma);
+  const disciplinaAtivaObj = matrizDisciplinas.find(m => m.id === selectedDisciplina);
+  const notasFiltradasPorCicloEDisciplina = historicoNotas.filter(h => h.cicloId === selectedCiclo && h.disciplinaId === selectedDisciplina);
+  const meuBoletimAluno = historicoNotas.filter(h => h.alunoId === selectedStudentId && h.cicloId === selectedCiclo);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
       
-      {/* CONTROLADOR DE AMBIENTE / ROLES */}
+      {/* SECURITY SIMULATOR BAR (Garante teste rápido de todos os cenários de uso) */}
       <div className="bg-slate-900 text-white px-6 py-2.5 flex flex-wrap items-center justify-between text-xs border-b border-slate-700 shadow-md">
         <div className="flex items-center space-x-2 font-medium">
-          <ShieldAlert className="text-teal-400 w-4 h-4" />
-          <span>Seletor de Perfil Institucional:</span>
+          <ShieldAlert className="text-emerald-400 w-4 h-4" />
+          <span>Autenticação de Sandbox (Simulação de Perfil):</span>
         </div>
-        <div className="flex items-center space-x-4 my-1 sm:my-0">
+        <div className="flex items-center space-x-3">
           <select 
             value={userRole} 
             onChange={(e) => { 
               setUserRole(e.target.value); 
-              setActiveTab(e.target.value === 'admin' ? 'config-residencia' : 'visao-modulo'); 
+              setActiveTab(e.target.value === 'gestor_coremu' ? 'gestao-ciclos' : 'mural-modulo'); 
             }}
-            className="bg-slate-800 text-white rounded px-3 py-1 border border-slate-600 focus:outline-none font-semibold text-xs"
+            className="bg-slate-800 text-white rounded px-2.5 py-1 border border-slate-600 focus:outline-none font-bold"
           >
-            <option value="admin">⚙️ SUPER ADMIN / COREMU</option>
-            <option value="professor">👨‍🏫 PRECEPTOR / PROFESSOR</option>
-            <option value="aluno">🎓 RESIDENTE / ALUNO</option>
+            <option value="gestor_coremu">🏢 GESTOR / COORDENADOR COREMU</option>
+            <option value="preceptor_docente">👨‍🏫 PRECEPTOR / DOCENTE</option>
+            <option value="residente_aluno">🎓 RESIDENTE / ALUNO</option>
           </select>
 
-          {userRole === 'aluno' && (
+          {userRole === 'residente_aluno' && (
             <select 
               value={selectedStudentId} 
               onChange={(e) => setSelectedStudentId(parseInt(e.target.value))}
               className="bg-slate-800 text-white rounded px-2 py-1 border border-slate-600 focus:outline-none"
             >
-              {residentes.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}
+              <option value={1}>Ana Silva (Enfermagem)</option>
+              <option value={2}>Bruno Costa (Odontologia)</option>
+              <option value={3}>Carlos Souza (Psicologia)</option>
             </select>
           )}
         </div>
       </div>
 
-      {/* HEADER DE MARCA INSTITUCIONAL */}
-      <header className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-xs">
+      {/* HEADER PRINCIPAL INSTITUCIONAL */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap justify-between items-center gap-4 shadow-xs">
         <div className="flex items-center space-x-3">
-          <div className="bg-gradient-to-br from-teal-700 to-teal-900 text-white p-2 rounded-xl font-black text-xs tracking-wider shadow-sm">
-            COREMU
+          <div className="bg-gradient-to-tr from-teal-800 to-teal-950 text-white p-2.5 rounded-xl font-black text-xs tracking-wider shadow-inner">
+            HACO
           </div>
           <div>
-            <h1 className="text-sm font-extrabold text-slate-900">Plataforma Unificada de Residências em Saúde</h1>
-            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Hospital de Clínicas & Unidades Adscritas</p>
+            <h1 className="text-sm font-black text-slate-900">ERP Eterno • Sistema Integrado de Residências em Saúde</h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hospital de Aeronáutica de Canoas / Subdivisão de Saúde</p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="text-right hidden sm:block">
-            <span className="text-xs font-bold block text-slate-800">Seletor de Programa:</span>
-            <select 
-              value={selectedResidencia}
-              onChange={(e) => { setSelectedResidencia(e.target.value); }}
-              className="text-xs bg-slate-100 text-slate-700 font-medium p-1 rounded border border-slate-200 mt-0.5 focus:outline-none"
-            >
-              {residencias.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}
+
+        {/* CONTROLES DE ESCOPO GLOBAL (PROGRAMA E ANO/CICLO) */}
+        <div className="flex items-center space-x-4 bg-slate-50 p-2 rounded-xl border border-slate-200">
+          <div className="text-xs">
+            <span className="block font-bold text-slate-500 text-[10px] uppercase">Ciclo de Gestão:</span>
+            <select value={selectedCiclo} onChange={(e) => setSelectedCiclo(e.target.value)} className="bg-transparent font-bold text-slate-900 focus:outline-none cursor-pointer">
+              {ciclos.map(c => <option key={c.id} value={c.id}>{c.nome} [{c.status.toUpperCase()}]</option>)}
+            </select>
+          </div>
+          <div className="h-6 w-px bg-slate-300"></div>
+          <div className="text-xs">
+            <span className="block font-bold text-slate-500 text-[10px] uppercase">Programa Ativo:</span>
+            <select value={selectedPrograma} onChange={(e) => { setSelectedPrograma(e.target.value); }} className="bg-transparent font-bold text-slate-900 focus:outline-none cursor-pointer">
+              {programas.map(p => <option key={p.id} value={p.id}>{p.nome.split(':')[0]}</option>)}
             </select>
           </div>
         </div>
       </header>
 
-      {/* NAVEGAÇÃO DINÂMICA DE ACORDO COM O PERFIL */}
-      <div className="bg-white border-b border-slate-200 px-6 pt-2">
-        <div className="max-w-7xl mx-auto flex space-x-2 overflow-x-auto">
-          {userRole === 'admin' && (
+      {/* ABAS DO SISTEMA ADAPTADAS AO PAPEL LOGADO */}
+      <div className="bg-white border-b border-slate-200 px-6">
+        <div className="max-w-7xl mx-auto flex space-x-2">
+          {userRole === 'gestor_coremu' && (
             <>
-              <button onClick={() => setActiveTab('config-residencia')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'config-residencia' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>🏢 Estruturar Residências</button>
-              <button onClick={() => setActiveTab('config-disciplinas')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'config-disciplinas' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📚 Nova Disciplina / Ementa</button>
-              <button onClick={() => setActiveTab('config-avisos')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'config-avisos' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📢 Lançar Avisos Globais</button>
+              <button onClick={() => setActiveTab('gestao-ciclos')} className={`px-4 py-2.5 text-xs font-black rounded-t-xl border-t-2 transition ${activeTab === 'gestao-ciclos' ? 'bg-slate-100 text-teal-800 border-teal-700' : 'border-transparent text-slate-500'}`}>📅 Ciclos & Arquivamentos</button>
+              <button onClick={() => setActiveTab('gestao-matriz')} className={`px-4 py-2.5 text-xs font-black rounded-t-xl border-t-2 transition ${activeTab === 'gestao-matriz' ? 'bg-slate-100 text-teal-800 border-teal-700' : 'border-transparent text-slate-500'}`}>📚 Matrizes de Ementas</button>
             </>
           )}
-          {(userRole === 'professor' || userRole === 'aluno') && (
+          {(userRole === 'preceptor_docente' || userRole === 'residente_aluno') && (
             <>
-              <button onClick={() => setActiveTab('visao-modulo')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'visao-modulo' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📖 Mural e Ementas</button>
-              {userRole === 'professor' && (
-                <>
-                  <button onClick={() => setActiveTab('prof-frequencia')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'prof-frequencia' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📅 Diário de Frequência</button>
-                  <button onClick={() => setActiveTab('prof-notas')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'prof-notas' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📊 Caderneta de Notas</button>
-                </>
+              <button onClick={() => setActiveTab('mural-modulo')} className={`px-4 py-2.5 text-xs font-black rounded-t-xl border-t-2 transition ${activeTab === 'mural-modulo' ? 'bg-slate-100 text-teal-800 border-teal-700' : 'border-transparent text-slate-500'}`}>📖 Mural Pedagógico</button>
+              {userRole === 'preceptor_docente' && (
+                <button onClick={() => setActiveTab('preceptor-notas')} className={`px-4 py-2.5 text-xs font-black rounded-t-xl border-t-2 transition ${activeTab === 'preceptor-notas' ? 'bg-slate-100 text-teal-800 border-teal-700' : 'border-transparent text-slate-500'}`}>📊 Diário & Lançamento de Notas</button>
               )}
-              {userRole === 'aluno' && (
-                <button onClick={() => setActiveTab('aluno-boletim')} className={`px-4 py-2 text-xs font-bold rounded-t-lg transition ${activeTab === 'aluno-boletim' ? 'bg-slate-50 text-teal-700 border-t border-x border-slate-200' : 'text-slate-500'}`}>📈 Meu Boletim Individual</button>
+              {userRole === 'residente_aluno' && (
+                <button onClick={() => setActiveTab('aluno-boletim')} className={`px-4 py-2.5 text-xs font-black rounded-t-xl border-t-2 transition ${activeTab === 'aluno-boletim' ? 'bg-slate-100 text-teal-800 border-teal-700' : 'border-transparent text-slate-500'}`}>📈 Meu Painel de Notas de Campo</button>
               )}
             </>
           )}
         </div>
       </div>
 
-      {/* CONTEÚDO PRINCIPAL DO WORKSPACE */}
+      {/* CONTEÚDO DINÂMICO DE CADERNO */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
 
-        {/* SELECTOR DE COMPONENTE CURRICULAR ATIVO */}
-        {(userRole === 'professor' || userRole === 'aluno') && (
-          <div className="bg-gradient-to-r from-teal-50 to-emerald-50 p-4 rounded-xl border border-teal-100 flex flex-wrap items-center justify-between gap-4">
+        {/* STATUS ALERT: CASO O CICLO ESTEJA ARQUIVADO (CONGELADO) */}
+        {cicloAtivoObj?.status === 'arquivado' && (
+          <div className="bg-amber-50 border-l-4 border-amber-600 p-3.5 rounded-r-xl flex items-center space-x-3 text-xs text-amber-900 font-semibold shadow-xs">
+            <Archive className="w-5 h-5 text-amber-600 flex-shrink-0" />
             <div>
-              <span className="text-[9px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded uppercase">Componente Curricular em Foco:</span>
-              <h2 className="text-base font-black text-slate-900 mt-1">{currentDisciplinaObj?.codigo} - {currentDisciplinaObj?.titulo}</h2>
-            </div>
-            <div className="flex items-center space-x-2">
-              <label className="text-xs font-bold text-slate-600">Alternar Disciplina:</label>
-              <select 
-                value={selectedDisciplina} 
-                onChange={(e) => setSelectedDisciplina(e.target.value)}
-                className="text-xs bg-white text-slate-800 p-1.5 rounded-lg border border-slate-200 font-medium focus:outline-none shadow-xs"
-              >
-                {filtradasDisciplinas.map(d => <option key={d.id} value={d.id}>{d.titulo}</option>)}
-              </select>
+              <p className="font-bold">Ciclo Histórico Arquivado Históricamente</p>
+              <p className="font-normal text-amber-700">Este período letivo foi encerrado pela gestão. Todas as notas e frequências estão em modo de leitura imutável para auditorias.</p>
             </div>
           </div>
         )}
 
-        {/* ==================== TABS DO SUPER ADMIN ==================== */}
-        {activeTab === 'config-residencia' && userRole === 'admin' && (
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5"><Layers className="w-4 h-4 text-teal-700"/><span>Criação de Novos Programas de Residência</span></h3>
-            <form onSubmit={addResidencia} className="flex gap-2 max-w-md">
-              <input type="text" value={newResidenciaNome} onChange={(e) => setNewResidenciaNome(e.target.value)} placeholder="Ex: Urgência e Emergência" className="text-xs flex-1 border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-teal-500 focus:outline-none" />
-              <button type="submit" className="bg-teal-700 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-teal-800 flex items-center space-x-1"><Plus className="w-3.5 h-3.5"/><span>Cadastrar</span></button>
+        {/* SELECTOR DE DISCIPLINA PARA PRECEPTORES E RESIDENTES */}
+        {(userRole === 'preceptor_docente' || userRole === 'residente_aluno') && (
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap justify-between items-center gap-3">
+            <div>
+              <span className="text-[9px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded uppercase">Componente Curricular em Exibição:</span>
+              <h2 className="text-sm font-black text-slate-900 mt-1">{disciplinaAtivaObj?.codigo} - {disciplinaAtivaObj?.titulo}</h2>
+            </div>
+            <select value={selectedDisciplina} onChange={(e) => setSelectedDisciplina(e.target.value)} className="text-xs font-bold bg-slate-50 border p-2 rounded-lg text-slate-700 focus:outline-none">
+              {disciplinasFiltradas.map(d => <option key={d.id} value={d.id}>{d.titulo}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* 1. INTERFACE DO GESTOR: ARQUIVAMENTO E CRIAÇÃO DE CICLOS ANUAIS */}
+        {activeTab === 'gestao-ciclos' && userRole === 'gestor_coremu' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-1 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4 h-fit">
+              <h3 className="font-black text-xs uppercase tracking-wider text-slate-500">Abrir Novo Ciclo Acadêmico</h3>
+              <form onSubmit={handleCriarCiclo} className="space-y-3">
+                <input type="text" value={newCicloNome} onChange={(e) => setNewCicloNome(e.target.value)} placeholder="Ex: Ciclo Letivo 2027/1" className="text-xs w-full border rounded-lg p-2.5 focus:ring-1 focus:ring-teal-700 focus:outline-none bg-slate-50" />
+                <button type="submit" className="w-full bg-teal-800 text-white p-2 rounded-lg text-xs font-bold hover:bg-teal-900 transition flex items-center justify-center space-x-1"><Plus className="w-4 h-4"/><span>Inicializar Período</span></button>
+              </form>
+            </div>
+            <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <h3 className="font-black text-xs uppercase tracking-wider text-slate-500">Mapeamento Eterno de Ciclos e Controle de Trava de Segurança</h3>
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden text-xs">
+                {ciclos.map(c => (
+                  <div key={c.id} className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition">
+                    <div className="flex items-center space-x-2 font-bold text-slate-900">
+                      <span>{c.nome}</span>
+                      <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${c.status === 'ativo' ? 'bg-emerald-100 text-emerald-800' : c.status === 'arquivado' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>{c.status}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {c.status === 'ativo' && (
+                        <button onClick={() => handleAlternarStatusCiclo(c.id, 'arquivado')} className="bg-amber-600 hover:bg-amber-700 text-white font-bold p-1 px-2 rounded flex items-center space-x-1 transition text-[10px]"><Lock className="w-3 h-3"/><span>Congelar e Arquivar</span></button>
+                      )}
+                      {c.status === 'arquivado' && (
+                        <button onClick={() => handleAlternarStatusCiclo(c.id, 'ativo')} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold p-1 px-2 rounded flex items-center space-x-1 transition text-[10px]"><Unlock className="w-3 h-3"/><span>Desarquivar</span></button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2. INTERFACE DO GESTOR: MATRIZ CURRICULAR (EMENTÁRIO) */}
+        {activeTab === 'gestao-matriz' && userRole === 'gestor_coremu' && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="font-black text-xs uppercase tracking-wider text-slate-500 flex items-center space-x-1"><FolderPlus className="text-teal-700 w-4 h-4"/><span>Gerenciador de Ementas de Cursos</span></h3>
+            <form onSubmit={handleCriarDisciplina} className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 max-w-4xl">
+              <input type="text" value={newDiscCodigo} onChange={(e) => setNewDiscCodigo(e.target.value)} placeholder="Código (Ex: RMAB004)" className="text-xs p-2 rounded border bg-white" />
+              <input type="text" value={newDiscTitulo} onChange={(e) => setNewDiscTitulo(e.target.value)} placeholder="Nome do Componente Curricular" className="text-xs p-2 rounded border bg-white sm:col-span-2" />
+              <textarea value={newDiscEmenta} onChange={(e) => setNewDiscEmenta(e.target.value)} placeholder="Definição da Ementa Regulamentar..." className="text-xs p-2 rounded border bg-white sm:col-span-3 h-16" />
+              <button type="submit" className="bg-teal-800 text-white p-2 rounded font-bold text-xs hover:bg-teal-900 transition sm:col-span-1">Adicionar na Matriz</button>
             </form>
-            <div className="border border-slate-100 rounded-lg divide-y divide-slate-100 text-xs">
-              {residencias.map(r => (
-                <div key={r.id} className="p-3 flex justify-between items-center hover:bg-slate-50 font-medium text-slate-800">
-                  <span>🎓 Componente Coremu: <strong>{r.nome}</strong></span>
-                  <span className="text-[10px] font-bold text-slate-400">ID unificado: {r.id}</span>
+            <div className="grid grid-cols-1 gap-3 pt-2 text-xs">
+              {disciplinasFiltradas.map(d => (
+                <div key={d.id} className="p-3.5 border border-slate-200 rounded-xl space-y-1 bg-slate-50/30">
+                  <span className="font-black text-teal-800 text-xs">{d.codigo} — {d.titulo}</span>
+                  <p className="text-slate-600 font-medium leading-relaxed">{d.ementa}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {activeTab === 'config-disciplinas' && userRole === 'admin' && (
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5"><FolderPlus className="w-4 h-4 text-blue-600"/><span>Inclusão de Disciplinas e Matrizes de Ementa</span></h3>
-            <form onSubmit={addDisciplina} className="space-y-3 max-w-xl bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <div className="grid grid-cols-3 gap-2">
-                <input type="text" value={newDiscCodigo} onChange={(e) => setNewDiscCodigo(e.target.value)} placeholder="Código (Ex: RMAB003)" className="text-xs border border-slate-300 rounded p-2 bg-white" />
-                <input type="text" value={newDiscTitulo} onChange={(e) => setNewDiscTitulo(e.target.value)} placeholder="Nome do Componente" className="text-xs col-span-2 border border-slate-300 rounded p-2 bg-white" />
-              </div>
-              <textarea value={newDiscEmenta} onChange={(e) => setNewDiscEmenta(e.target.value)} placeholder="Descrição da ementa programática..." className="text-xs w-full border border-slate-300 rounded p-2 bg-white h-20" />
-              <button type="submit" className="bg-teal-700 text-white px-4 py-2 rounded text-xs font-bold hover:bg-teal-800">Salvar na Residência Atual</button>
-            </form>
+        {/* 3. INTERFACE COMPARTILHADA: MURAL PEDAGÓGICO */}
+        {activeTab === 'mural-modulo' && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+            <h3 className="font-black text-xs uppercase tracking-wider text-slate-400">Diretrizes da Ementa Oficial do Componente</h3>
+            <p className="text-xs font-semibold text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-100 leading-relaxed italic">"{disciplinaAtivaObj?.ementa}"</p>
           </div>
         )}
 
-        {activeTab === 'config-avisos' && userRole === 'admin' && (
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5"><Bell className="w-4 h-4 text-amber-500"/><span>Mural Geral de Avisos e Comunicação</span></h3>
-            <form onSubmit={addAviso} className="space-y-3 max-w-xl">
-              <input type="text" value={newAvisoTitulo} onChange={(e) => setNewAvisoTitulo(e.target.value)} placeholder="Título do Comunicado Importante" className="text-xs w-full border border-slate-300 rounded p-2" />
-              <textarea value={newAvisoConteudo} onChange={(e) => setNewAvisoConteudo(e.target.value)} placeholder="Texto completo do aviso..." className="text-xs w-full border border-slate-300 rounded p-2 h-24" />
-              <button type="submit" className="bg-amber-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-amber-700">Publicar Aviso no Mural</button>
-            </form>
-          </div>
-        )}
-
-        {/* ==================== VISION COMPARTILHADA: MURAL E EMENTAS ==================== */}
-        {activeTab === 'visao-modulo' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 space-y-4">
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Ementa do Componente</h3>
-                <p className="text-xs text-slate-700 leading-relaxed font-medium bg-slate-50 p-3.5 rounded-xl border border-slate-100">{currentDisciplinaObj?.ementa}</p>
-              </div>
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Mural de Avisos Integrados</h3>
-                {filtradosAvisos.length === 0 ? <p className="text-xs italic text-slate-400">Nenhum aviso vigente para este módulo.</p> : 
-                  filtradosAvisos.map(a => (
-                    <div key={a.id} className="p-4 border-l-4 border-teal-600 bg-teal-50/20 rounded-r-xl space-y-1.5 text-xs">
-                      <div className="flex justify-between font-bold text-slate-900">
-                        <span>{a.titulo}</span>
-                        <span className="text-[10px] text-slate-400">{a.data}</span>
-                      </div>
-                      <p className="text-slate-600">{a.conteudo}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold">— Emitido por: {a.autor}</p>
-                    </div>
-                  ))
-                }
-              </div>
+        {/* 4. INTERFACE DO PRECEPTOR: DIÁRIO DE NOTAS (COM TRAVA DE ARQUIVO HISTÓRICO) */}
+        {activeTab === 'preceptor-notas' && userRole === 'preceptor_docente' && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex justify-between items-center flex-wrap gap-2">
+              <h3 className="font-black text-xs uppercase tracking-wider text-slate-500">Caderneta Digital de Avaliação Somativa</h3>
+              {cicloAtivoObj?.status === 'arquivado' && <span className="bg-red-100 text-red-800 text-[10px] p-1 px-2 rounded-md font-bold uppercase tracking-wider flex items-center gap-1"><Lock className="w-3 h-3"/>Leitura Histórica Bloqueada</span>}
             </div>
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Materiais Complementares</h3>
-                <div className="p-2.5 border border-slate-100 bg-slate-50 rounded-lg text-xs font-medium flex items-center justify-between">
-                  <span className="truncate">Projeto_Politico_Pedagogico.pdf</span>
-                  <FileText className="text-red-500 w-4 h-4 flex-shrink-0" />
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200">
+                  <tr>
+                    <th className="p-3.5">Residente Integrante</th>
+                    <th className="p-3.5 text-center">Nota GA</th>
+                    <th className="p-3.5 text-center">Nota BB</th>
+                    <th className="p-3.5 text-center">Nota GC</th>
+                    <th className="p-3.5 text-center">Faltas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                  {notasFiltradasPorCicloEDisciplina.map(n => (
+                    <tr key={n.id} className="hover:bg-slate-50/50">
+                      <td className="p-3.5 font-bold text-slate-950">{n.nome}</td>
+                      <td className="p-3.5 text-center">
+                        <input type="number" step="0.1" value={n.ga} disabled={cicloAtivoObj?.status === 'arquivado'} onChange={(e) => handlePreceptorNota(n.id, 'ga', e.target.value)} className="w-12 text-center p-1 border rounded focus:outline-none font-bold disabled:bg-slate-100" />
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <input type="number" step="0.1" value={n.gb} disabled={cicloAtivoObj?.status === 'arquivado'} onChange={(e) => handlePreceptorNota(n.id, 'gb', e.target.value)} className="w-12 text-center p-1 border rounded focus:outline-none font-bold disabled:bg-slate-100" />
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <input type="number" step="0.1" value={n.gc} disabled={cicloAtivoObj?.status === 'arquivado'} onChange={(e) => handlePreceptorNota(n.id, 'gc', e.target.value)} className="w-12 text-center p-1 border rounded focus:outline-none font-bold disabled:bg-slate-100" />
+                      </td>
+                      <td className="p-3.5 text-center font-bold text-amber-800 bg-amber-50/20">{n.faltas}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 5. INTERFACE DO RESIDENTE: BOLETIM HISTÓRICO DA SUA JORNADA */}
+        {activeTab === 'aluno-boletim' && userRole === 'residente_aluno' && (
+          <div className="space-y-4">
+            <h3 className="font-black text-xs uppercase tracking-wider text-slate-400">Meu Extrato Consolidado no Ciclo {cicloAtivoObj?.nome}</h3>
+            {meuBoletimAluno.length === 0 ? <p className="text-xs italic text-slate-400">Nenhum registro de avaliação lançado para você neste ciclo e disciplina.</p> :
+              meuBoletimAluno.map(b => (
+                <div key={b.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                  <div className="md:col-span-2">
+                    <span className="text-[10px] font-bold text-teal-800 uppercase tracking-widest bg-teal-50 px-2 py-0.5 rounded">Componente Técnico</span>
+                    <h4 className="font-extrabold text-sm text-slate-900 mt-1">{disciplinaAtivaObj?.titulo}</h4>
+                    <p className="text-slate-500 text-[11px] mt-1 italic">Parecer: "{b.parecer}"</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 p-3 rounded-xl border border-slate-100 md:col-span-2">
+                    <div><span className="text-[9px] font-bold text-slate-400 uppercase">GA</span><p className="font-black text-sm text-slate-800 mt-0.5">{b.ga || '-'}</p></div>
+                    <div><span className="text-[9px] font-bold text-slate-400 uppercase">GB</span><p className="font-black text-sm text-slate-800 mt-0.5">{b.gb || '-'}</p></div>
+                    <div><span className="text-[9px] font-bold text-slate-400 uppercase">Média</span><p className="font-black text-sm text-teal-800 mt-0.5">{(((b.ga || 0) + (b.gb || 0)) / 2).toFixed(1)}</p></div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== PAINEL DO PROFESSOR: FREQUÊNCIA ==================== */}
-        {activeTab === 'prof-frequencia' && userRole === 'professor' && (
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-bold text-sm text-slate-900">Controle Diário de Frequência das Atividades Coletivas</h3>
-            <div className="overflow-x-auto rounded-lg border border-slate-100">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3">Nome do Residente</th>
-                    <th className="p-3 text-center">Faltas Computadas</th>
-                    <th className="p-3 text-center">Encontro 1 (Presença)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {filtradosResidentes.map(r => (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="p-3 text-slate-900">{r.nome}</td>
-                      <td className="p-3 text-center font-bold text-amber-700">{r.faltas}</td>
-                      <td className="p-3 text-center">
-                        <input type="checkbox" defaultChecked onChange={(e) => handlePresencaChange(r.id, e.target.checked)} className="rounded text-teal-700 focus:ring-teal-500 w-4 h-4" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== PAINEL DO PROFESSOR: CENTRAL DE NOTAS ==================== */}
-        {activeTab === 'prof-notas' && userRole === 'professor' && (
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-bold text-sm text-slate-900">Lançamento de Avaliações Somativas & Pareceres</h3>
-            <div className="overflow-x-auto rounded-lg border border-slate-100">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3">Residente</th>
-                    <th className="p-3 text-center">GA</th>
-                    <th className="p-3 text-center">GB</th>
-                    <th className="p-3 text-center">GC</th>
-                    <th className="p-3 text-center">Resultado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filtradosResidentes.map(r => (
-                    <tr key={r.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 font-semibold text-slate-900">{r.nome}</td>
-                      <td className="p-3 text-center"><input type="number" step="0.1" value={r.ga} onChange={(e) => handleNotaChange(r.id, 'ga', e.target.value)} className="w-12 text-center p-1 border border-slate-200 rounded" /></td>
-                      <td className="p-3 text-center"><input type="number" step="0.1" value={r.gb} onChange={(e) => handleNotaChange(r.id, 'gb', e.target.value)} className="w-12 text-center p-1 border border-slate-200 rounded" /></td>
-                      <td className="p-3 text-center"><input type="number" step="0.1" value={r.gc} placeholder="-" onChange={(e) => handleNotaChange(r.id, 'gc', e.target.value)} className="w-12 text-center p-1 border border-slate-200 rounded" /></td>
-                      <td className="p-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'Aprovado' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>{r.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== PAINEL DO ALUNO: BOLETIM PRIVADO ==================== */}
-        {activeTab === 'aluno-boletim' && userRole === 'aluno' && (
-          <div className="space-y-6">
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5"><GraduationCap className="text-teal-700 w-5 h-5"/><span>Extrato de Avaliações e Notas Individuais</span></h3>
-                <span className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full uppercase tracking-wider">Módulo Corrente</span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200"><p className="text-[10px] uppercase font-bold text-slate-400">Avaliação GA</p><p className="text-xl font-black text-slate-800 mt-1">{alunoLogado?.ga || '-'}</p></div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200"><p className="text-[10px] uppercase font-bold text-slate-400">Avaliação GB</p><p className="text-xl font-black text-slate-800 mt-1">{alunoLogado?.gb || '-'}</p></div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200"><p className="text-[10px] uppercase font-bold text-slate-400">Exame GC</p><p className="text-xl font-black text-slate-800 mt-1">{alunoLogado?.gc || 'N/A'}</p></div>
-                <div className="p-3 bg-teal-50 rounded-xl border border-teal-200"><p className="text-[10px] uppercase font-bold text-teal-800">Resultado Final</p><p className="text-xl font-black text-teal-900 mt-1">{alunoLogado?.status}</p></div>
-              </div>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs leading-relaxed">
-                <span className="font-bold block text-slate-800">Feedback Qualitativo do Preceptor Responsável:</span>
-                <p className="italic text-slate-600 mt-1">"{alunoLogado?.parecer}"</p>
-              </div>
-            </div>
+              ))
+            }
           </div>
         )}
 
