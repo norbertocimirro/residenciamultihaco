@@ -14,12 +14,12 @@ import {
 // ⚠️ INSIRA AS SUAS CREDENCIAIS DO FIREBASE AQUI:
 // ==========================================
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY_AQUI",
-  authDomain: "SEU_AUTH_DOMAIN_AQUI",
-  projectId: "SEU_PROJECT_ID_AQUI",
-  storageBucket: "SEU_STORAGE_BUCKET_AQUI",
-  messagingSenderId: "SEU_MESSAGING_SENDER_ID_AQUI",
-  appId: "SUA_APP_ID_AQUI"
+  apiKey: "AIzaSyAwRjc9QUmF4quqYOvt-Z187Mlv5rQnHXE",
+  authDomain: "residenciamultihaco.firebaseapp.com",
+  projectId: "residenciamultihaco",
+  storageBucket: "residenciamultihaco.firebasestorage.app",
+  messagingSenderId: "1089100227489",
+  appId: "1:1089100227489:web:3b0102e76b25f2c9e8a1e0"
 };
 
 const app = initializeApp(firebaseConfig);
