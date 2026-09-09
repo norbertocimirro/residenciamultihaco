@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check, Loader2
 } from 'lucide-react';
 
 // ==========================================
@@ -119,6 +119,7 @@ const useFirestoreDB = (docName, initialValue) => {
 // ==========================================
 function LmsEnterprisePortal() {
   
+  // 1. TODAS as chamadas de banco de dados
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
@@ -143,31 +144,45 @@ function LmsEnterprisePortal() {
     'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }]
   });
 
-  // Variáveis com blindagem total contra undefined
-  const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
-  const courses = Array.isArray(dbCourses) ? dbCourses : [];
-  const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
-  const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
-
+  // 2. TODOS os Hooks de estado da interface
   const [activeUserId, setActiveUserId] = useState('admin1');
-  const currentUser = systemUsers[activeUserId] || systemUsers['admin1'] || { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' };
-  const role = currentUser?.role || 'admin';
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentView, setCurrentView] = useState('admin_dashboard'); 
   const [editMode, setEditMode] = useState(false);
   const [activeCourseId, setActiveCourseId] = useState(null);
   const [expandedModules, setExpandedModules] = useState({});
 
-  const canEdit = editMode && (role === 'admin' || role === 'professor');
-
+  // 3. TODOS os Hooks dos Modais
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
   const [newFile, setNewFile] = useState(null);
 
-  // Exibe a tela de carregamento (sem ícones complexos) enquanto o Firebase conecta
+  // 4. TODOS os Hooks de Formulários
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserRole, setNewUserRole] = useState('aluno');
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingUserName, setEditingUserName] = useState('');
+  const [newCourseCode, setNewCourseCode] = useState('');
+  const [newCourseName, setNewCourseName] = useState('');
+  const [newCourseProfId, setNewCourseProfId] = useState('');
+  const [newStudentId, setNewStudentId] = useState('');
+
+  // Variáveis com blindagem total contra undefined (Não usam hooks, logo são seguras)
+  const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
+  const courses = Array.isArray(dbCourses) ? dbCourses : [];
+  const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
+  const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
+
+  const currentUser = systemUsers[activeUserId] || systemUsers['admin1'] || { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' };
+  const role = currentUser?.role || 'admin';
+  const canEdit = editMode && (role === 'admin' || role === 'professor');
+
+  // ==========================================
+  // TELA DE CARREGAMENTO (AGUARDANDO FIREBASE)
+  // (AGORA POSICIONADA APÓS TODOS OS HOOKS)
+  // ==========================================
   const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded;
   if (!isDbReady) {
     return (
@@ -222,11 +237,6 @@ function LmsEnterprisePortal() {
   };
 
   // Funções de Gestão de Usuários
-  const [newUserName, setNewUserName] = useState('');
-  const [newUserRole, setNewUserRole] = useState('aluno');
-  const [editingUserId, setEditingUserId] = useState(null);
-  const [editingUserName, setEditingUserName] = useState('');
-
   const handleCreateUser = (e) => {
     e.preventDefault();
     if (!newUserName) return;
@@ -264,12 +274,12 @@ function LmsEnterprisePortal() {
     setEditingUserName('');
   };
 
-  // Funções de Disciplinas
-  const [newCourseCode, setNewCourseCode] = useState('');
-  const [newCourseName, setNewCourseName] = useState('');
-  const [newCourseProfId, setNewCourseProfId] = useState('');
-  const [newStudentId, setNewStudentId] = useState('');
+  const handleCancelEditUser = () => {
+    setEditingUserId(null);
+    setEditingUserName('');
+  };
 
+  // Funções de Disciplinas
   const handleCreateCourse = (e) => {
     e.preventDefault();
     if (!newCourseCode || !newCourseName || !newCourseProfId) return;
@@ -1046,7 +1056,6 @@ function LmsEnterprisePortal() {
   );
 }
 
-// Exportando com o Escudo de Erros ativo
 export default function App() {
   return (
     <ErrorBoundary>
