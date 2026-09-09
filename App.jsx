@@ -4,35 +4,12 @@ import {
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users
 } from 'lucide-react';
 
-// ==========================================
-// BANCO DE USUÁRIOS DO SISTEMA (SIMULAÇÃO)
-// ==========================================
-const SYSTEM_USERS = {
-  'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
-  'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
-  'prof2': { id: 'prof2', nome: 'Dra. Renata Gonçalves', role: 'professor', avatar: 'RG' },
-  'stu1': { id: 'stu1', nome: 'Mariana Alves', role: 'aluno', avatar: 'MA' },
-  'stu2': { id: 'stu2', nome: 'João Barcelos', role: 'aluno', avatar: 'JB' },
-  'stu3': { id: 'stu3', nome: 'Carlos Bastos', role: 'aluno', avatar: 'CB' }
-};
-
 export default function LmsEnterprisePortal() {
-  const [activeUserId, setActiveUserId] = useState('admin1');
-  const currentUser = SYSTEM_USERS[activeUserId];
-  const role = currentUser.role;
-
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentView, setCurrentView] = useState('admin_dashboard'); 
-  const [editMode, setEditMode] = useState(false);
-  const [activeCourseId, setActiveCourseId] = useState(null);
-
-  const canEdit = editMode && (role === 'admin' || role === 'professor');
-
   // ==========================================
-  // HOOK DE LOCALSTORAGE
+  // HOOK DE LOCALSTORAGE (BANCO DE DADOS LOCAL)
   // ==========================================
   const useLocalStorage = (key, initialValue) => {
     const [storedValue, setStoredValue] = useState(() => {
@@ -50,44 +27,57 @@ export default function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // DADOS DO SISTEMA
+  // 1. TABELA DE USUÁRIOS (AGORA É DINÂMICA)
   // ==========================================
-  const [courses, setCourses] = useLocalStorage('lms_v5_courses', [
-    { id: 'c1', codigo: '001/003/07A', nome: 'Enfermagem Forense e Saúde da Família', professorId: 'prof1' },
-    { id: 'c2', codigo: 'RMAB001', nome: 'Territorialização e Diagnóstico de Saúde', professorId: 'prof2' }
+  const [systemUsers, setSystemUsers] = useLocalStorage('lms_v6_users', {
+    'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
+    'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
+    'prof2': { id: 'prof2', nome: 'Dra. Renata Gonçalves', role: 'professor', avatar: 'RG' },
+    'stu1': { id: 'stu1', nome: 'Mariana Alves', role: 'aluno', avatar: 'MA' },
+    'stu2': { id: 'stu2', nome: 'João Barcelos', role: 'aluno', avatar: 'JB' }
+  });
+
+  const [activeUserId, setActiveUserId] = useState('admin1');
+  // Se o usuário ativo foi deletado (failsafe), volta pro admin
+  const currentUser = systemUsers[activeUserId] || systemUsers['admin1'];
+  const role = currentUser.role;
+
+  // ==========================================
+  // ESTADOS GLOBAIS DE NAVEGAÇÃO
+  // ==========================================
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentView, setCurrentView] = useState('admin_dashboard'); 
+  const [editMode, setEditMode] = useState(false);
+  const [activeCourseId, setActiveCourseId] = useState(null);
+
+  const canEdit = editMode && (role === 'admin' || role === 'professor');
+
+  // ==========================================
+  // 2. TABELAS DE CURSOS, CONTEÚDOS E MATRÍCULAS
+  // ==========================================
+  const [courses, setCourses] = useLocalStorage('lms_v6_courses', [
+    { id: 'c1', codigo: '001/003/07A', nome: 'Enfermagem Forense e Saúde da Família', professorId: 'prof1' }
   ]);
 
   const defaultModules = [
     {
       id: 'boas_vindas', title: 'Mural de Boas-vindas', bgColor: 'bg-blue-50/50', borderColor: 'border-blue-100',
-      items: [{ id: 'i1', title: 'Plano de Ensino', type: 'FileText', color: 'text-red-500' }]
-    },
-    {
-      id: 'atividades', title: 'Atividades Avaliativas', bgColor: 'bg-emerald-50/50', borderColor: 'border-emerald-100',
-      items: [{ id: 'i2', title: 'Envio de Relatório Técnico', type: 'Upload', color: 'text-teal-600' }]
+      items: [{ id: 'i1', title: 'Plano de Ensino', type: 'FileText', color: 'text-red-500', fileName: 'Plano_de_Ensino_2026.pdf' }]
     }
   ];
 
-  const [courseContents, setCourseContents] = useLocalStorage('lms_v5_contents', {
-    'c1': defaultModules,
-    'c2': defaultModules
-  });
+  const [courseContents, setCourseContents] = useLocalStorage('lms_v6_contents', { 'c1': defaultModules });
 
-  const [courseStudents, setCourseStudents] = useLocalStorage('lms_v5_students', {
+  const [courseStudents, setCourseStudents] = useLocalStorage('lms_v6_students', {
     'c1': [
-      { studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." },
-      { studentId: 'stu2', ga: 2.9, gb: 5.8, gc: 0, faltas: [true, true, true], feedback: "Atenção às faltas." }
-    ],
-    'c2': [
-      { studentId: 'stu1', ga: 9.0, gb: 8.5, gc: 0, faltas: [false, false, false], feedback: "" },
-      { studentId: 'stu3', ga: 7.5, gb: 8.0, gc: 0, faltas: [false, false, true], feedback: "Participativo." }
+      { studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }
     ]
   });
 
   const [expandedModules, setExpandedModules] = useState({});
 
   // ==========================================
-  // ESTADOS DO MODAL DE RECURSOS 
+  // ESTADOS DO MODAL DE RECURSOS E ANEXOS
   // ==========================================
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
@@ -112,7 +102,7 @@ export default function LmsEnterprisePortal() {
     setActiveUserId(userId);
     setEditMode(false);
     
-    const newRole = SYSTEM_USERS[userId].role;
+    const newRole = systemUsers[userId].role;
     const newVisibleCourses = courses.filter(c => {
       if (newRole === 'admin') return true;
       if (newRole === 'professor') return c.professorId === userId;
@@ -135,7 +125,36 @@ export default function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // FUNÇÕES DE ADMINISTRAÇÃO (GESTOR)
+  // FUNÇÕES: GESTÃO DE USUÁRIOS (NOVO)
+  // ==========================================
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserRole, setNewUserRole] = useState('aluno');
+
+  const handleCreateUser = (e) => {
+    e.preventDefault();
+    if (!newUserName) return;
+    const newId = `usr_${Date.now()}`;
+    const initials = newUserName.substring(0, 2).toUpperCase();
+    
+    setSystemUsers({
+      ...systemUsers,
+      [newId]: { id: newId, nome: newUserName, role: newUserRole, avatar: initials }
+    });
+    setNewUserName('');
+    alert('Usuário cadastrado com sucesso!');
+  };
+
+  const handleDeleteUser = (id) => {
+    if (id === 'admin1') return alert('O Administrador principal não pode ser apagado.');
+    if (window.confirm('Excluir este usuário permanentemente?')) {
+      const updatedUsers = { ...systemUsers };
+      delete updatedUsers[id];
+      setSystemUsers(updatedUsers);
+    }
+  };
+
+  // ==========================================
+  // FUNÇÕES: GESTÃO DE DISCIPLINAS
   // ==========================================
   const [newCourseCode, setNewCourseCode] = useState('');
   const [newCourseName, setNewCourseName] = useState('');
@@ -173,28 +192,25 @@ export default function LmsEnterprisePortal() {
     setNewStudentId('');
   };
 
-  // ==========================================
-  // VARIÁVEIS DERIVADAS DA DISCIPLINA ATIVA
-  // ==========================================
   const activeContent = courseContents[activeCourseId] || [];
   const rawActiveStudents = courseStudents[activeCourseId] || [];
   const activeCourseObj = courses.find(c => c.id === activeCourseId);
 
   const studentsInCourse = rawActiveStudents.map(enrollment => ({
     ...enrollment,
-    nome: SYSTEM_USERS[enrollment.studentId]?.nome || 'Usuário Desconhecido'
+    nome: systemUsers[enrollment.studentId]?.nome || 'Usuário Excluído'
   }));
 
   const visibleGradesAndAttendance = role === 'aluno' 
     ? studentsInCourse.filter(s => s.studentId === currentUser.id) 
     : studentsInCourse;
 
-  const availableStudentsForEnrollment = Object.values(SYSTEM_USERS).filter(u => 
+  const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => 
     u.role === 'aluno' && !rawActiveStudents.some(s => s.studentId === u.id)
   );
 
   // ==========================================
-  // FUNÇÕES DE CONTEÚDO E NOTAS
+  // FUNÇÕES: CONTEÚDO E ANEXOS
   // ==========================================
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setCourseContents({ ...courseContents, [activeCourseId]: newContent });
@@ -210,15 +226,12 @@ export default function LmsEnterprisePortal() {
   const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec.id === sectionId ? { ...sec, items: sec.items.map(item => item.id === itemId ? { ...item, title: newTitle } : item) } : sec));
   const deleteItem = (sectionId, itemId) => updateContent(activeContent.map(sec => sec.id === sectionId ? { ...sec, items: sec.items.filter(item => item.id !== itemId) } : sec));
 
-  // ==========================================
-  // FUNÇÕES DO MODAL (UPLOAD)
-  // ==========================================
   const handleOpenAddItemModal = (sectionId) => {
     setActiveSectionForNewItem(sectionId);
     setNewItemTitle('');
     setNewItemType('FileText');
     setNewItemUrl('');
-    setNewFile(null);
+    setNewFile(null); // Limpa o anexo anterior
   };
 
   const handleConfirmAddItem = (e) => {
@@ -241,7 +254,7 @@ export default function LmsEnterprisePortal() {
             type: newItemType, 
             color: color,
             url: newItemUrl || null,
-            fileName: newFile ? newFile.name : null
+            fileName: newFile ? newFile.name : null // Salva o nome real do anexo subido do PC
           }]
         };
       }
@@ -291,13 +304,83 @@ export default function LmsEnterprisePortal() {
   // COMPONENTES DE TELA (VIEWS)
   // ==========================================
 
+  const renderAdminUsers = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-purple-50 text-purple-700 rounded-xl"><Users className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Gestão de Usuários</h2>
+          <p className="text-sm text-slate-500 mt-1">Cadastre novos residentes e preceptores no sistema.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-purple-600"/> Novo Usuário</h3>
+          <form onSubmit={handleCreateUser} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Nome Completo</label>
+              <input type="text" required value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Ex: Dra. Ana Costa" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Perfil de Acesso</label>
+              <select required value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white">
+                <option value="aluno">Aluno / Residente</option>
+                <option value="professor">Professor / Preceptor</option>
+                <option value="admin">Administrador (Gestão)</option>
+              </select>
+            </div>
+            <button type="submit" className="w-full bg-purple-800 text-white font-bold p-3 rounded-lg hover:bg-purple-900 transition flex items-center justify-center gap-2">
+              <Plus className="w-4 h-4"/> Cadastrar Sistema
+            </button>
+          </form>
+        </div>
+
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-slate-600"/> Usuários Ativos</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-100 text-slate-600 font-bold border-b">
+                <tr>
+                  <th className="p-3">Nome</th>
+                  <th className="p-3 text-center">Perfil</th>
+                  <th className="p-3 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {Object.values(systemUsers).map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold text-slate-800 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold">{u.avatar}</div>
+                      {u.nome}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${u.role === 'admin' ? 'bg-slate-800 text-white' : u.role === 'professor' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">
+                      {u.id !== 'admin1' && (
+                        <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4 inline"/></button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderAdminDashboard = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
         <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Shield className="w-8 h-8"/></div>
         <div>
           <h2 className="text-xl font-black text-slate-800">Governança Acadêmica - COREMU</h2>
-          <p className="text-sm text-slate-500 mt-1">Crie disciplinas, vincule professores (Preceptores) e matricule residentes.</p>
+          <p className="text-sm text-slate-500 mt-1">Crie disciplinas e gerencie as matrizes ativas.</p>
         </div>
       </div>
 
@@ -317,7 +400,7 @@ export default function LmsEnterprisePortal() {
               <label className="text-xs font-bold text-slate-500 uppercase">Professor Titular / Preceptor</label>
               <select required value={newCourseProfId} onChange={e => setNewCourseProfId(e.target.value)} className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
                 <option value="">Selecione...</option>
-                {Object.values(SYSTEM_USERS).filter(u => u.role === 'professor').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                {Object.values(systemUsers).filter(u => u.role === 'professor').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </div>
             <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition flex items-center justify-center gap-2">
@@ -337,12 +420,12 @@ export default function LmsEnterprisePortal() {
                   <div>
                     <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
                     <h4 className="font-bold text-slate-800 mt-1">{c.nome}</h4>
-                    <p className="text-xs text-slate-500 mt-1">Professor: <strong>{SYSTEM_USERS[c.professorId]?.nome}</strong></p>
+                    <p className="text-xs text-slate-500 mt-1">Professor: <strong>{systemUsers[c.professorId]?.nome}</strong></p>
                     <p className="text-xs text-slate-400">{(courseStudents[c.id] || []).length} aluno(s) matriculado(s)</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => { setActiveCourseId(c.id); setCurrentView('admin_students'); }} className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-100 flex items-center gap-2">
-                      <UserPlus className="w-3.5 h-3.5"/> Alunos
+                      <UserPlus className="w-3.5 h-3.5"/> Matrículas
                     </button>
                     <button onClick={() => handleDeleteCourse(c.id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100">
                       Excluir
@@ -361,7 +444,7 @@ export default function LmsEnterprisePortal() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => setCurrentView('admin_dashboard')} className="text-slate-500 hover:text-slate-800 font-bold text-sm flex items-center">
-          <ChevronRight className="w-4 h-4 rotate-180 mr-1"/> Voltar ao Painel
+          <ChevronRight className="w-4 h-4 rotate-180 mr-1"/> Voltar às Disciplinas
         </button>
       </div>
 
@@ -371,7 +454,7 @@ export default function LmsEnterprisePortal() {
         
         <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="mt-6 flex gap-3 max-w-lg">
           <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
-            <option value="">Selecione um residente...</option>
+            <option value="">Selecione um residente cadastrado...</option>
             {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
           </select>
           <button type="submit" className="bg-teal-800 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2">
@@ -431,7 +514,7 @@ export default function LmsEnterprisePortal() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="font-black text-slate-800">Adicionar uma atividade ou recurso</h3>
+              <h3 className="font-black text-slate-800">Adicionar atividade ou recurso</h3>
               <button onClick={() => setActiveSectionForNewItem(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5"/></button>
             </div>
             <form onSubmit={handleConfirmAddItem} className="p-6 space-y-5">
@@ -461,7 +544,7 @@ export default function LmsEnterprisePortal() {
               {(newItemType === 'Link' || newItemType === 'FileText') && (
                 <div className="animate-fade-in border-t pt-4">
                   <label className="text-xs font-bold text-slate-500 uppercase block mb-2">
-                    {newItemType === 'Link' ? 'URL do Link Externo' : 'Anexar Arquivo'}
+                    {newItemType === 'Link' ? 'URL do Link Externo' : 'Anexar Arquivo do Computador'}
                   </label>
                   {newItemType === 'Link' ? (
                     <input type="url" value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="https://..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
@@ -532,12 +615,13 @@ export default function LmsEnterprisePortal() {
                           <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
                         )}
                         
-                        {!canEdit && item.fileName && (
+                        {/* Exibe o nome do arquivo anexado */}
+                        {item.fileName && (
                           <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 mt-1 bg-slate-100 w-fit px-2 py-0.5 rounded border border-slate-200">
                             <Paperclip className="w-3 h-3"/> {item.fileName}
                           </div>
                         )}
-                        {!canEdit && item.url && (
+                        {item.url && !canEdit && (
                           <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline mt-1 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
                             <Link className="w-3 h-3"/> Acessar Link Externo
                           </a>
@@ -709,6 +793,10 @@ export default function LmsEnterprisePortal() {
                   <Shield className="w-5 h-5 flex-shrink-0" />
                   {sidebarOpen && <span>Gestão COREMU</span>}
                 </button>
+                <button onClick={() => {setCurrentView('admin_users'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-bold transition-colors ${currentView === 'admin_users' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
+                  <Users className="w-5 h-5 flex-shrink-0" />
+                  {sidebarOpen && <span>Gestão de Usuários</span>}
+                </button>
                 <div className="my-4 border-t border-slate-800 mx-2"></div>
               </>
             )}
@@ -727,12 +815,12 @@ export default function LmsEnterprisePortal() {
             ) : (
               visibleCourses.map(c => (
                 <div key={c.id}>
-                  <button onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home'); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${activeCourseId === c.id && currentView !== 'admin_dashboard' && currentView !== 'admin_students' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 text-slate-400'}`}>
+                  <button onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home'); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${activeCourseId === c.id && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && currentView !== 'admin_users' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 text-slate-400'}`}>
                     <Book className="w-5 h-5 flex-shrink-0" />
                     {sidebarOpen && <span className="truncate">{c.codigo}</span>}
                   </button>
                   
-                  {activeCourseId === c.id && sidebarOpen && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && (
+                  {activeCourseId === c.id && sidebarOpen && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && currentView !== 'admin_users' && (
                     <div className="ml-4 pl-4 border-l border-slate-700 mt-1 space-y-1">
                       <button onClick={() => setCurrentView('grades')} className={`w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${currentView === 'grades' ? 'text-teal-400' : 'hover:bg-slate-800 text-slate-400'}`}>
                         <BarChart className="w-4 h-4 flex-shrink-0" /> Notas e Parecer
@@ -753,18 +841,9 @@ export default function LmsEnterprisePortal() {
           <div className="p-4 bg-slate-950 border-t border-slate-800 z-50">
             <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Simular Login de Usuário</p>
             <select value={activeUserId} onChange={(e) => switchUser(e.target.value)} className="w-full bg-slate-800 text-xs font-bold text-slate-300 p-2 rounded border border-slate-700 outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer">
-              <optgroup label="Administração">
-                <option value="admin1">Gestão COREMU (Admin)</option>
-              </optgroup>
-              <optgroup label="Docentes / Preceptores">
-                <option value="prof1">1º Ten Norberto (Prof)</option>
-                <option value="prof2">Dra. Renata (Prof)</option>
-              </optgroup>
-              <optgroup label="Residentes / Alunos">
-                <option value="stu1">Mariana Alves (R1)</option>
-                <option value="stu2">João Barcelos (R1)</option>
-                <option value="stu3">Carlos Bastos (R1)</option>
-              </optgroup>
+              {Object.values(systemUsers).map(u => (
+                <option key={u.id} value={u.id}>{u.nome} ({u.role})</option>
+              ))}
             </select>
           </div>
         )}
@@ -798,16 +877,17 @@ export default function LmsEnterprisePortal() {
             
             {currentView === 'admin_dashboard' && renderAdminDashboard()}
             {currentView === 'admin_students' && renderAdminStudents()}
+            {currentView === 'admin_users' && renderAdminUsers()}
             {currentView === 'empty_state' && renderEmptyState()}
 
-            {activeCourseId && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && (
+            {activeCourseId && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && currentView !== 'admin_users' && (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
                   <div>
                     <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
                       {activeCourseObj?.nome}
                     </h1>
-                    <p className="text-sm text-slate-500 mt-1 font-medium">{activeCourseObj?.codigo} • Professor Titular: {SYSTEM_USERS[activeCourseObj?.professorId]?.nome}</p>
+                    <p className="text-sm text-slate-500 mt-1 font-medium">{activeCourseObj?.codigo} • Professor Titular: {systemUsers[activeCourseObj?.professorId]?.nome}</p>
                   </div>
                   
                   {(role === 'professor' || role === 'admin') && (
