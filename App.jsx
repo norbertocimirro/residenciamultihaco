@@ -1,35 +1,66 @@
 import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { 
   Menu, Bell, Search, Home, Book, Calendar, BarChart, 
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check, Loader2
 } from 'lucide-react';
 
+// ==========================================
+// ⚠️ INSIRA SUAS CREDENCIAIS DO FIREBASE AQUI
+// ==========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyAwRjc9QUmF4quqYOvt-Z187Mlv5rQnHXE",
+  authDomain: "residenciamultihaco.firebaseapp.com",
+  projectId: "residenciamultihaco",
+  storageBucket: "residenciamultihaco.firebasestorage.app",
+  messagingSenderId: "1089100227489",
+  appId: "1:1089100227489:web:3b0102e76b25f2c9e8a1e0"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 export default function LmsEnterprisePortal() {
+  
   // ==========================================
-  // HOOK DE LOCALSTORAGE (BANCO DE DADOS LOCAL)
+  // HOOK DE SINCRONIZAÇÃO EM TEMPO REAL (FIRESTORE)
   // ==========================================
-  const useLocalStorage = (key, initialValue) => {
-    const [storedValue, setStoredValue] = useState(() => {
-      try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : initialValue;
-      } catch (error) {
-        return initialValue;
-      }
-    });
+  const useFirestoreDB = (docName, initialValue) => {
+    const [data, setData] = useState(initialValue);
+    const [isLoaded, setIsLoaded] = useState(false);
+
     useEffect(() => {
-      window.localStorage.setItem(key, JSON.stringify(storedValue));
-    }, [key, storedValue]);
-    return [storedValue, setStoredValue];
+      const unsub = onSnapshot(doc(db, 'coremu_database', docName), (docSnap) => {
+        if (docSnap.exists()) {
+          setData(docSnap.data().value);
+        } else {
+          setDoc(doc(db, 'coremu_database', docName), { value: initialValue });
+          setData(initialValue);
+        }
+        setIsLoaded(true);
+      });
+      return () => unsub();
+    }, [docName]);
+
+    const updateData = async (newValue) => {
+      const valToSave = typeof newValue === 'function' ? newValue(data) : newValue;
+      setData(valToSave); // Atualização visual otimista imediata
+      await setDoc(doc(db, 'coremu_database', docName), { value: valToSave });
+    };
+
+    return [data, updateData, isLoaded];
   };
 
   // ==========================================
-  // 1. TABELA DE USUÁRIOS
+  // BANCO DE DADOS EM NUVEM (TABELAS)
   // ==========================================
-  const [systemUsers, setSystemUsers] = useLocalStorage('lms_v7_users', {
+  
+  // 1. Tabela de Usuários
+  const [systemUsers, setSystemUsers, usersLoaded] = useFirestoreDB('tb_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
     'prof2': { id: 'prof2', nome: 'Dra. Renata Gonçalves', role: 'professor', avatar: 'RG' },
@@ -37,43 +68,41 @@ export default function LmsEnterprisePortal() {
     'stu2': { id: 'stu2', nome: 'João Barcelos', role: 'aluno', avatar: 'JB' }
   });
 
-  const [activeUserId, setActiveUserId] = useState('admin1');
-  const currentUser = systemUsers[activeUserId] || systemUsers['admin1'];
-  const role = currentUser.role;
-
-  // ==========================================
-  // ESTADOS GLOBAIS DE NAVEGAÇÃO
-  // ==========================================
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentView, setCurrentView] = useState('admin_dashboard'); 
-  const [editMode, setEditMode] = useState(false);
-  const [activeCourseId, setActiveCourseId] = useState(null);
-
-  const canEdit = editMode && (role === 'admin' || role === 'professor');
-
-  // ==========================================
-  // 2. TABELAS DE CURSOS, CONTEÚDOS E MATRÍCULAS
-  // ==========================================
-  const [courses, setCourses] = useLocalStorage('lms_v7_courses', [
+  // 2. Tabela de Cursos/Disciplinas
+  const [courses, setCourses, coursesLoaded] = useFirestoreDB('tb_courses', [
     { id: 'c1', codigo: '001/003/07A', nome: 'Enfermagem Forense e Saúde da Família', professorId: 'prof1' }
   ]);
 
+  // 3. Tabela de Conteúdos por Disciplina
   const defaultModules = [
     {
       id: 'boas_vindas', title: 'Mural de Boas-vindas', bgColor: 'bg-blue-50/50', borderColor: 'border-blue-100',
       items: [{ id: 'i1', title: 'Plano de Ensino', type: 'FileText', color: 'text-red-500', fileName: 'Plano_de_Ensino_2026.pdf' }]
     }
   ];
+  const [courseContents, setCourseContents, contentsLoaded] = useFirestoreDB('tb_contents', { 'c1': defaultModules });
 
-  const [courseContents, setCourseContents] = useLocalStorage('lms_v7_contents', { 'c1': defaultModules });
-
-  const [courseStudents, setCourseStudents] = useLocalStorage('lms_v7_students', {
+  // 4. Tabela de Matrículas, Notas e Diário
+  const [courseStudents, setCourseStudents, studentsLoaded] = useFirestoreDB('tb_enrollments', {
     'c1': [
       { studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }
     ]
   });
 
+  // ==========================================
+  // ESTADOS GLOBAIS DE NAVEGAÇÃO
+  // ==========================================
+  const [activeUserId, setActiveUserId] = useState('admin1');
+  const currentUser = systemUsers[activeUserId] || systemUsers['admin1'];
+  const role = currentUser?.role || 'admin';
+
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentView, setCurrentView] = useState('admin_dashboard'); 
+  const [editMode, setEditMode] = useState(false);
+  const [activeCourseId, setActiveCourseId] = useState(null);
   const [expandedModules, setExpandedModules] = useState({});
+
+  const canEdit = editMode && (role === 'admin' || role === 'professor');
 
   // ==========================================
   // ESTADOS DO MODAL DE RECURSOS E ANEXOS
@@ -83,6 +112,20 @@ export default function LmsEnterprisePortal() {
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
   const [newFile, setNewFile] = useState(null);
+
+  // ==========================================
+  // TELA DE CARREGAMENTO (AGUARDANDO NUVEM)
+  // ==========================================
+  const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded;
+  if (!isDbReady) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
+        <Loader2 className="w-12 h-12 text-teal-600 animate-spin mb-4" />
+        <h2 className="text-xl font-black text-slate-800">Conectando ao Banco de Dados</h2>
+        <p className="text-sm text-slate-500 mt-2">Sincronizando portal COREMU...</p>
+      </div>
+    );
+  }
 
   // ==========================================
   // LÓGICA DE RBAC E TROCA DE USUÁRIO
@@ -128,8 +171,6 @@ export default function LmsEnterprisePortal() {
   // ==========================================
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('aluno');
-
-  // Estados para Edição Dinâmica do Usuário
   const [editingUserId, setEditingUserId] = useState(null);
   const [editingUserName, setEditingUserName] = useState('');
 
@@ -144,7 +185,7 @@ export default function LmsEnterprisePortal() {
       [newId]: { id: newId, nome: newUserName, role: newUserRole, avatar: initials }
     });
     setNewUserName('');
-    alert('Usuário cadastrado com sucesso!');
+    alert('Usuário cadastrado com sucesso no banco de dados!');
   };
 
   const handleDeleteUser = (id) => {
@@ -168,7 +209,7 @@ export default function LmsEnterprisePortal() {
     }
     const updatedUsers = { ...systemUsers };
     updatedUsers[id].nome = editingUserName;
-    updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase(); // Atualiza as iniciais
+    updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase();
     setSystemUsers(updatedUsers);
     setEditingUserId(null);
     setEditingUserName('');
@@ -197,7 +238,7 @@ export default function LmsEnterprisePortal() {
     setCourseStudents({ ...courseStudents, [newId]: [] });
     
     setNewCourseCode(''); setNewCourseName(''); setNewCourseProfId('');
-    alert('Disciplina criada e atribuída com sucesso!');
+    alert('Disciplina criada e salva no banco de dados!');
   };
 
   const handleDeleteCourse = (id) => {
@@ -289,6 +330,9 @@ export default function LmsEnterprisePortal() {
     setActiveSectionForNewItem(null); 
   };
 
+  // ==========================================
+  // FUNÇÕES: NOTAS E DIÁRIO DE CLASSE
+  // ==========================================
   const updateGrade = (studentId, field, value) => {
     setCourseStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
   };
@@ -357,7 +401,7 @@ export default function LmsEnterprisePortal() {
               </select>
             </div>
             <button type="submit" className="w-full bg-purple-800 text-white font-bold p-3 rounded-lg hover:bg-purple-900 transition flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4"/> Cadastrar Sistema
+              <Plus className="w-4 h-4"/> Salvar na Nuvem
             </button>
           </form>
         </div>
@@ -430,7 +474,7 @@ export default function LmsEnterprisePortal() {
         <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Shield className="w-8 h-8"/></div>
         <div>
           <h2 className="text-xl font-black text-slate-800">Governança Acadêmica - COREMU</h2>
-          <p className="text-sm text-slate-500 mt-1">Crie disciplinas e gerencie as matrizes ativas.</p>
+          <p className="text-sm text-slate-500 mt-1">Crie disciplinas e gerencie as matrizes ativas na Nuvem.</p>
         </div>
       </div>
 
@@ -454,7 +498,7 @@ export default function LmsEnterprisePortal() {
               </select>
             </div>
             <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4"/> Ativar e Criar Sala Virtual
+              <Plus className="w-4 h-4"/> Salvar Disciplina
             </button>
           </form>
         </div>
@@ -559,7 +603,6 @@ export default function LmsEnterprisePortal() {
   const renderCourseHome = () => (
     <div className="animate-fade-in relative">
       
-      {/* MODAL DE ADICIONAR RECURSOS COM UPLOAD REAL */}
       {activeSectionForNewItem && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
