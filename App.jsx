@@ -96,11 +96,8 @@ const useFirestoreDB = (docName, initialValue) => {
     const valToSave = typeof newValue === 'function' ? newValue(data) : newValue;
     setData(valToSave); 
     if (db) {
-      try {
-        await setDoc(doc(db, 'coremu_database', docName), { value: valToSave });
-      } catch (error) {
-        console.error("Falha ao gravar na nuvem:", error);
-      }
+      try { await setDoc(doc(db, 'coremu_database', docName), { value: valToSave }); } 
+      catch (error) { console.error("Falha ao gravar na nuvem:", error); }
     }
   };
 
@@ -141,16 +138,12 @@ function LmsEnterprisePortal() {
   }];
   
   const [dbContents, setDbContents, contentsLoaded] = useFirestoreDB('tb_contents', { 'c1': defaultModules });
-  
-  const [dbStudents, setDbStudents, studentsLoaded] = useFirestoreDB('tb_enrollments', { 
-    'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [], feedback: "Ótimo desempenho." }] 
-  });
-  
+  const [dbStudents, setDbStudents, studentsLoaded] = useFirestoreDB('tb_enrollments', { 'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [], feedback: "Ótimo desempenho." }] });
   const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', { 'c1': [] });
   const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums_v3', {});
   const [dbExams, setDbExams, examsLoaded] = useFirestoreDB('tb_exams_v1', {});
 
-  // Prevenção contra undefined
+  // Blindagem de Variáveis
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
@@ -196,7 +189,7 @@ function LmsEnterprisePortal() {
   const [newStudentId, setNewStudentId] = useState('');
 
   // ----------------------------------------
-  // ESTADOS DE RECURSOS ESPECÍFICOS (AVA)
+  // ESTADOS DOS MÓDULOS AVA E PERFIL
   // ----------------------------------------
   const [readingItem, setReadingItem] = useState(null); 
   const [activeForumItem, setActiveForumItem] = useState(null); 
@@ -296,6 +289,11 @@ function LmsEnterprisePortal() {
       updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase();
       setDbUsers(updatedUsers);
     }
+    setEditingUserId(null);
+    setEditingUserName('');
+  };
+
+  const handleCancelEditUser = () => {
     setEditingUserId(null);
     setEditingUserName('');
   };
@@ -406,6 +404,9 @@ function LmsEnterprisePortal() {
     setNewFile(null);
   };
 
+  // ----------------------------------------
+  // LÓGICA DE UPLOAD E PUBLICAÇÃO
+  // ----------------------------------------
   const handleConfirmAddItem = async (e) => {
     e.preventDefault();
     if (!newItemTitle) return;
@@ -468,7 +469,7 @@ function LmsEnterprisePortal() {
   };
 
   // ----------------------------------------
-  // GESTÃO DE NOTAS E DIÁRIO DE CLASSE
+  // FUNÇÕES DE NOTAS E FREQUÊNCIA
   // ----------------------------------------
   const updateGrade = (studentId, field, value) => {
     const updatedStudents = (courseStudents[activeCourseId] || []).map(s => {
@@ -583,10 +584,7 @@ function LmsEnterprisePortal() {
 
     const saveProfile = (e) => {
       e.preventDefault();
-      setDbUsers({
-        ...systemUsers,
-        [viewingProfileId]: { ...profileUser, ...editProfileData }
-      });
+      setDbUsers({ ...systemUsers, [viewingProfileId]: { ...profileUser, ...editProfileData } });
       setEditProfileData(null);
     };
 
@@ -763,6 +761,8 @@ function LmsEnterprisePortal() {
           
           <div className="flex-1 flex overflow-hidden">
             {!activeTopicId ? (
+              
+              /* LISTA DE TÓPICOS */
               <div className="flex-1 p-8 overflow-y-auto space-y-8">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg">
@@ -802,6 +802,8 @@ function LmsEnterprisePortal() {
                 </div>
               </div>
             ) : (
+              
+              /* VISÃO DO TÓPICO E RESPOSTAS */
               <div className="flex-1 flex flex-col h-full bg-slate-50">
                 <div className="p-4 border-b border-slate-200 bg-white shrink-0 flex items-center gap-4 shadow-sm">
                   <button onClick={() => setActiveTopicId(null)} className="p-2 bg-slate-100 text-slate-600 hover:bg-purple-100 hover:text-purple-700 rounded-lg font-bold transition flex items-center gap-1">
@@ -816,9 +818,7 @@ function LmsEnterprisePortal() {
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-purple-600"></div>
                     <div className="flex items-center gap-4 mb-4 border-b border-slate-100 pb-4">
-                      <div onClick={() => setViewingProfileId(currentTopicData?.authorId)} className="cursor-pointer w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-sm font-bold border border-slate-200 hover:border-purple-500 transition">
-                        {currentTopicData?.avatar}
-                      </div>
+                      <div onClick={() => setViewingProfileId(currentTopicData?.authorId)} className="cursor-pointer w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-sm font-bold border border-slate-200 hover:border-purple-500 transition">{currentTopicData?.avatar}</div>
                       <div>
                         <p onClick={() => setViewingProfileId(currentTopicData?.authorId)} className="font-black text-slate-800 cursor-pointer hover:text-purple-700 transition">{currentTopicData?.authorName}</p>
                         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{new Date(currentTopicData?.createdAt).toLocaleString()}</p>
@@ -827,16 +827,14 @@ function LmsEnterprisePortal() {
                     <p className="text-slate-700 text-base whitespace-pre-wrap leading-relaxed">{currentTopicData?.description}</p>
                   </div>
 
-                  {/* Respostas do Tópico */}
+                  {/* Respostas */}
                   <div className="space-y-4 pl-4 md:pl-12 border-l-2 border-slate-200">
                     {(currentTopicData?.replies || []).map((reply, idx) => (
                       <div key={reply.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative">
                         <div className="absolute -left-12 top-6 w-12 border-t-2 border-slate-200"></div>
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
-                            <div onClick={() => setViewingProfileId(reply.authorId)} className="cursor-pointer w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold border border-slate-200 hover:border-purple-500 transition">
-                              {reply.avatar}
-                            </div>
+                            <div onClick={() => setViewingProfileId(reply.authorId)} className="cursor-pointer w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold border border-slate-200 hover:border-purple-500 transition">{reply.avatar}</div>
                             <div>
                               <p onClick={() => setViewingProfileId(reply.authorId)} className="font-bold text-slate-800 text-xs cursor-pointer hover:text-purple-700 transition">{reply.authorName}</p>
                               <p className="text-[10px] text-slate-400">{new Date(reply.createdAt).toLocaleString()}</p>
@@ -869,7 +867,7 @@ function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // RENDER: CONSTRUTOR DE PROVAS E AVALIAÇÃO
+  // RENDER: PROVA NATIVA E AVALIAÇÕES
   // ==========================================
   const renderExamModal = () => {
     const examData = exams[activeExamItem.id] || { questions: [], submissions: {} };
@@ -1034,7 +1032,11 @@ function LmsEnterprisePortal() {
         } 
       };
       
-      setDbExams({ ...exams, [activeExamItem.id]: { ...examData, submissions: updatedSubmissions } });
+      setDbExams({ 
+        ...exams, 
+        [activeExamItem.id]: { ...examData, submissions: updatedSubmissions } 
+      });
+      
       alert(`Avaliação enviada com sucesso! Sua nota oficial foi: ${finalScore}`);
     };
 
@@ -1109,301 +1111,6 @@ function LmsEnterprisePortal() {
     );
   };
 
-
-  // ==========================================
-  // RENDERIZAÇÕES DAS TELAS DO PAINEL PRINCIPAL
-  // ==========================================
-  
-  const renderUserHome = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Home className="w-8 h-8"/></div>
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Olá, {currentUser.nome}</h2>
-          <p className="text-sm text-slate-500 mt-1">Bem-vindo ao Portal COREMU. Selecione uma disciplina abaixo para acessar a sala de aula virtual.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {visibleCourses.length === 0 ? (
-          <div className="col-span-full text-center p-12 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-slate-500">
-            <Book className="w-12 h-12 mx-auto mb-3 text-slate-300"/>
-            <p className="font-bold text-lg text-slate-700">Nenhuma disciplina vinculada</p>
-            <p className="text-sm mt-1">Você ainda não possui turmas ativas no semestre atual.</p>
-          </div>
-        ) : (
-          visibleCourses.map(c => {
-            if(!c) return null;
-            return (
-              <div key={c.id} onClick={() => { setActiveCourseId(c.id); setCurrentView('course_home'); }} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition cursor-pointer flex flex-col justify-between h-full group">
-                <div>
-                  <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
-                  <h3 className="font-bold text-slate-800 mt-3 group-hover:text-teal-700 transition leading-tight">{c.nome}</h3>
-                  <p className="text-xs text-slate-500 mt-2">Professor Titular: {systemUsers[c.professorId]?.nome || 'Não definido'}</p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-teal-700 text-sm font-bold">
-                  Acessar Sala <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-
-  const renderAdminDashboard = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Shield className="w-8 h-8"/></div>
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Governança Acadêmica - COREMU</h2>
-          <p className="text-sm text-slate-500 mt-1">Crie disciplinas e gerencie as matrizes ativas na Nuvem.</p>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Book className="w-5 h-5 text-teal-600"/> Abrir Nova Disciplina</h3>
-          <form onSubmit={handleCreateCourse} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Código</label>
-              <input type="text" required value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)} placeholder="Ex: RMAB001" className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome da Disciplina</label>
-              <input type="text" required value={newCourseName} onChange={e => setNewCourseName(e.target.value)} placeholder="Ex: Saúde Coletiva" className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Professor Titular / Preceptor</label>
-              <select required value={newCourseProfId} onChange={e => setNewCourseProfId(e.target.value)} className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-                <option value="">Selecione na lista...</option>
-                {Object.values(systemUsers).filter(u => u && u.role === 'professor').map(p => (
-                  <option key={p.id} value={p.id}>{p.nome}</option>
-                ))}
-              </select>
-            </div>
-            <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4"/> Salvar Nova Disciplina
-            </button>
-          </form>
-        </div>
-        
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Layout className="w-5 h-5 text-blue-600"/> Matriz Curricular Global</h3>
-          {courses.length === 0 ? (
-            <div className="text-center p-8 border border-dashed rounded-xl bg-slate-50 text-slate-500">Nenhuma disciplina ativa no momento.</div>
-          ) : (
-            <div className="space-y-3">
-              {courses.map(c => {
-                if(!c) return null;
-                const totalAlunos = Array.isArray(courseStudents[c.id]) ? courseStudents[c.id].length : 0;
-                return (
-                  <div key={c.id} className="p-4 border border-slate-200 rounded-xl hover:shadow-md transition bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
-                      <h4 className="font-bold text-slate-800 mt-1">{c.nome}</h4>
-                      <p className="text-xs text-slate-500 mt-1">Professor Responsável: <strong className="text-slate-700 hover:text-teal-700 cursor-pointer transition-colors" onClick={() => setViewingProfileId(c.professorId)}>{systemUsers[c.professorId]?.nome || 'Não definido'}</strong></p>
-                      <p className="text-xs text-slate-400 mt-1">{totalAlunos} aluno(s) matriculado(s)</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => { setActiveCourseId(c.id); setCurrentView('participants'); }} className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-100 flex items-center gap-2 transition">
-                        <Layout className="w-4 h-4"/> Abrir Gerenciamento
-                      </button>
-                      <button onClick={() => handleDeleteCourse(c.id)} className="bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-100 transition">
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderAdminUsers = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-        <div className="p-3 bg-purple-50 text-purple-700 rounded-xl"><Users className="w-8 h-8"/></div>
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Gestão de Usuários e Diretório</h2>
-          <p className="text-sm text-slate-500 mt-1">Cadastre novos residentes ou acesse os perfis de profissionais.</p>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-purple-600"/> Novo Usuário</h3>
-          <form onSubmit={handleCreateUser} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome Completo</label>
-              <input type="text" required value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Ex: Dra. Ana Costa" className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Perfil de Acesso</label>
-              <select required value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 bg-white">
-                <option value="aluno">Aluno / Residente</option>
-                <option value="professor">Professor / Preceptor</option>
-                <option value="admin">Administrador (Gestão)</option>
-              </select>
-            </div>
-            <button type="submit" className="w-full bg-purple-800 text-white font-bold p-3 rounded-lg hover:bg-purple-900 transition flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4"/> Criar Cadastro
-            </button>
-          </form>
-        </div>
-        
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-slate-600"/> Tabela de Usuários Ativos</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-600 font-bold border-b">
-                <tr>
-                  <th className="p-4">Nome Registrado (Clique para ver Perfil)</th>
-                  <th className="p-4 text-center">Perfil de Acesso</th>
-                  <th className="p-4 text-right">Ações Rápidas</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {Object.values(systemUsers).map(u => {
-                  if(!u) return null;
-                  const isEditingThisUser = editingUserId === u.id;
-                  
-                  return (
-                    <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-bold text-slate-800">
-                        <div className="flex items-center gap-3">
-                          <div onClick={() => setViewingProfileId(u.id)} className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 border border-slate-300 cursor-pointer hover:border-purple-500 transition">
-                            {u.avatar}
-                          </div>
-                          {isEditingThisUser ? (
-                            <input 
-                              type="text" 
-                              value={editingUserName} 
-                              onChange={e => setEditingUserName(e.target.value)} 
-                              className="border border-purple-300 px-3 py-1.5 rounded-md focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs shadow-sm"
-                              autoFocus 
-                            />
-                          ) : (
-                            <span onClick={() => setViewingProfileId(u.id)} className="cursor-pointer hover:text-purple-700 transition">{u.nome}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
-                          u.role === 'admin' ? 'bg-slate-800 text-white' : 
-                          u.role === 'professor' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 
-                          'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        }`}>
-                          {u.role}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right whitespace-nowrap">
-                        {isEditingThisUser ? (
-                          <>
-                            <button onClick={() => handleSaveEditedUser(u.id)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 p-2 rounded-md transition" title="Salvar Alteração"><Check className="w-5 h-5 inline"/></button>
-                            <button onClick={handleCancelEditUser} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-md transition" title="Cancelar"><X className="w-5 h-5 inline"/></button>
-                          </>
-                        ) : (
-                          <>
-                            <button onClick={() => handleStartEditUser(u)} className="text-slate-400 hover:text-purple-600 hover:bg-purple-50 p-2 rounded-md transition" title="Editar Nome"><Edit2 className="w-5 h-5 inline"/></button>
-                            {u.id !== 'admin1' && (
-                              <button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-md transition" title="Excluir Usuário"><Trash2 className="w-5 h-5 inline"/></button>
-                            )}
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderParticipants = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-        <div className="p-3 bg-blue-50 text-blue-700 rounded-xl"><Users className="w-8 h-8"/></div>
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Participantes da Disciplina</h2>
-          <p className="text-sm text-slate-500 mt-1">Visualize e gerencie os residentes matriculados nesta turma.</p>
-        </div>
-      </div>
-
-      {isEditing && (
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm print:hidden">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-teal-600"/> Matricular Novo Residente nesta Turma</h3>
-          <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="flex gap-3 max-w-lg">
-            <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border border-slate-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
-              <option value="">Selecione um residente disponível no sistema...</option>
-              {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-            </select>
-            <button type="submit" className="bg-teal-800 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2 shadow-sm">
-              <Plus className="w-4 h-4"/> Matricular
-            </button>
-          </form>
-        </div>
-      )}
-
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-100 text-slate-600 font-bold border-b">
-            <tr>
-              <th className="p-5 text-slate-500 uppercase tracking-wider text-xs">Nome do Aluno Matriculado (Clique p/ Perfil)</th>
-              <th className="p-5 text-center text-slate-500 uppercase tracking-wider text-xs">Situação</th>
-              {isEditing && <th className="p-5 text-right print:hidden text-slate-500 uppercase tracking-wider text-xs">Ação</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {studentsInCourse.length === 0 ? (
-              <tr>
-                <td colSpan={isEditing ? 3 : 2} className="p-8 text-center text-slate-500">
-                  <div className="flex flex-col items-center justify-center">
-                    <Users className="w-10 h-10 text-slate-300 mb-3" />
-                    <span>Nenhum aluno matriculado nesta disciplina no momento.</span>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              studentsInCourse.map(s => {
-                if(!s) return null;
-                return (
-                  <tr key={s.studentId} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-5 font-bold text-slate-800 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 border border-slate-300 cursor-pointer hover:border-teal-500 transition" onClick={() => setViewingProfileId(s.studentId)}>
-                        {systemUsers[s.studentId]?.avatar || '??'}
-                      </div>
-                      <span className="text-base cursor-pointer hover:text-teal-700 transition" onClick={() => setViewingProfileId(s.studentId)}>{s.nome}</span>
-                    </td>
-                    <td className="p-5 text-center">
-                      <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
-                        Matriculado Ativo
-                      </span>
-                    </td>
-                    {isEditing && (
-                      <td className="p-5 text-right print:hidden">
-                        <button onClick={() => deleteStudent(s.studentId)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Desmatricular Aluno">
-                          <Trash2 className="w-5 h-5 inline"/>
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
   // ==========================================
   // RENDERIZAÇÃO: BOLETIM DE NOTAS
   // ==========================================
@@ -1415,7 +1122,7 @@ function LmsEnterprisePortal() {
           <p className="text-xs text-slate-500 print:hidden">Lançamento de notas manuais da disciplina e feedbacks.</p>
         </div>
         {(role === 'professor' || role === 'admin') && (
-          <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+          <button onClick={() => window.print()} className="bg-teal-800 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
             <Printer className="w-4 h-4"/> Gerar PDF Oficial
           </button>
         )}
@@ -1508,7 +1215,7 @@ function LmsEnterprisePortal() {
               <Plus className="w-4 h-4"/> Registrar Nova Aula
             </button>
           )}
-          <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+          <button onClick={() => window.print()} className="bg-teal-800 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
             <Printer className="w-4 h-4"/> Gerar PDF Oficial
           </button>
         </div>
@@ -1577,228 +1284,6 @@ function LmsEnterprisePortal() {
           </tbody>
         </table>
       </div>
-    </div>
-  );
-
-  // ==========================================
-  // RENDER: MURAL DA SALA DE AULA (COURSE HOME)
-  // ==========================================
-  const renderCourseHome = () => (
-    <div className="animate-fade-in relative">
-      
-      {/* MODAL ADICIONAR CONTEÚDO (WYSIWYG, FORUM, PROVA, UPLOAD) */}
-      {activeSectionForNewItem && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden animate-fade-in flex flex-col h-[95vh]">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-              <h3 className="font-black text-slate-800 text-lg">Adicionar material à aula</h3>
-              <button onClick={() => setActiveSectionForNewItem(null)} className="text-slate-400 hover:text-slate-700 bg-white shadow-sm p-1.5 rounded-full transition-colors"><X className="w-5 h-5"/></button>
-            </div>
-            
-            <div className="p-6 md:p-10 overflow-y-auto flex-1 bg-slate-50/50">
-              <form onSubmit={handleConfirmAddItem} className="space-y-8 max-w-4xl mx-auto">
-                
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Título do Material na Plataforma</label>
-                  <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos Essenciais" className="w-full border border-slate-300 p-4 rounded-xl text-base font-medium focus:ring-2 focus:ring-teal-500 outline-none shadow-sm transition-all" />
-                </div>
-                
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-3">Formato do Conteúdo (Escolha um)</label>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div onClick={() => setNewItemType('TextContent')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'TextContent' ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
-                      <AlignLeft className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Página Web<br/><span className="font-normal text-slate-400 mt-1 block">Texto Escrito</span></span>
-                    </div>
-                    <div onClick={() => setNewItemType('FileText')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'FileText' ? 'border-red-500 bg-red-50 text-red-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
-                      <FileText className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Documento<br/><span className="font-normal text-slate-400 mt-1 block">PDF ou Excel</span></span>
-                    </div>
-                    <div onClick={() => setNewItemType('Link')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'Link' ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
-                      <Link className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Vídeo Aula<br/><span className="font-normal text-slate-400 mt-1 block">Link Externo</span></span>
-                    </div>
-                    <div onClick={() => setNewItemType('NativeExam')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'NativeExam' ? 'border-rose-500 bg-rose-50 text-rose-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
-                      <ClipboardList className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Prova Nativa<br/><span className="font-normal text-slate-400 mt-1 block">Avaliação COREMU</span></span>
-                    </div>
-                    <div onClick={() => setNewItemType('MessageSquare')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'MessageSquare' ? 'border-purple-500 bg-purple-50 text-purple-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
-                      <MessageSquare className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Fórum phpBB<br/><span className="font-normal text-slate-400 mt-1 block">Tópicos e Debates</span></span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="animate-fade-in border-t border-slate-200 pt-6">
-                  {newItemType === 'FileText' || newItemType === 'Upload' ? (
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-4">Upload Direto para Nuvem (Storage)</label>
-                      <input type="file" onChange={(e) => setNewFile(e.target.files[0])} className="w-full text-sm bg-slate-50 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-teal-100 file:text-teal-800 hover:file:bg-teal-200 cursor-pointer text-slate-500 rounded-xl transition" />
-                    </div>
-                  ) : newItemType === 'Link' ? (
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-4">URL do Vídeo (YouTube/Drive) ou Site</label>
-                      <input type="url" required value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="Cole o link começando com https://..." className="w-full border border-slate-300 p-4 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition" />
-                    </div>
-                  ) : newItemType === 'NativeExam' ? (
-                    <div className="bg-rose-50 text-rose-800 p-6 rounded-xl border border-rose-200 flex items-center gap-4 shadow-sm">
-                      <ClipboardList className="w-10 h-10 shrink-0 text-rose-500"/>
-                      <div>
-                        <strong className="block text-base mb-1">A prova será ativada no formato de rascunho em branco.</strong>
-                        <span className="text-sm">Após salvar e fechar esta tela, clique no botão "Configurar Prova Oficial" lá no mural principal da disciplina para escrever as perguntas, as alternativas e definir o gabarito.</span>
-                      </div>
-                    </div>
-                  ) : newItemType === 'MessageSquare' ? (
-                    <div className="bg-purple-50 text-purple-800 p-6 rounded-xl border border-purple-200 flex items-center gap-4 shadow-sm">
-                      <Users className="w-10 h-10 shrink-0 text-purple-500"/>
-                      <div>
-                        <strong className="block text-base mb-1">Criação de Fórum Acadêmico</strong>
-                        <span className="text-sm">Um ambiente estruturado no estilo phpBB será gerado automaticamente. Professores e alunos poderão criar Tópicos e enviar Respostas documentadas permanentemente.</span>
-                      </div>
-                    </div>
-                  ) : newItemType === 'TextContent' ? (
-                    <div className="space-y-3">
-                      <label className="text-xs font-bold text-amber-600 uppercase tracking-widest block">Redator da Aula (Página Web Rica)</label>
-                      <div className="border-2 border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm h-[400px] flex flex-col">
-                        <ReactQuill theme="snow" value={newItemTextContent} onChange={setNewItemTextContent} modules={quillModules} className="h-full flex flex-col" />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="pt-6 shrink-0">
-                  <button type="submit" disabled={isUploading} className="w-full bg-teal-800 text-white font-black p-4 rounded-xl hover:bg-teal-900 transition shadow-lg text-lg disabled:bg-slate-400 flex items-center justify-center">
-                    {isUploading ? (
-                      <span className="flex items-center gap-3"><Loader2 className="w-6 h-6 animate-spin"/> Transferindo arquivo para nuvem...</span>
-                    ) : (
-                      'Publicar na Sala de Aula'
-                    )}
-                  </button>
-                </div>
-                
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* BOTÃO MÁGICO DE ADICIONAR MÓDULO (SE EDITMODE) */}
-      {isEditing && (
-        <div onClick={addSection} className="mb-8 border-2 border-dashed border-teal-300 rounded-xl p-6 text-center bg-teal-50/50 hover:bg-teal-50 cursor-pointer transition text-teal-700 font-bold text-base flex items-center justify-center gap-3 shadow-sm print:hidden">
-          <Plus className="w-6 h-6"/> Criar Novo Tópico ou Módulo Temático
-        </div>
-      )}
-
-      {/* ESTADO VAZIO SE NÃO TIVER NADA */}
-      {activeContent.length === 0 && (
-        <div className="text-center p-16 bg-white rounded-2xl border border-slate-200 text-slate-400 shadow-sm mt-8">
-          <Book className="w-16 h-16 mx-auto mb-4 opacity-20"/>
-          <p className="font-black text-xl text-slate-700">Sala de Aula Vazia</p>
-          <p className="text-sm mt-2">Ative o "Modo de Edição" e clique no botão acima para começar a adicionar materiais, provas e fóruns.</p>
-        </div>
-      )}
-
-      {/* RENDERIZAÇÃO DA ÁRVORE DE CONTEÚDOS */}
-      {activeContent.map(section => {
-        if(!section) return null;
-        return(
-        <div key={section.id} className={`mb-8 rounded-2xl border ${section.borderColor || 'border-slate-200'} overflow-hidden shadow-sm bg-white print:break-inside-avoid transition-all`}>
-          <div className={`flex items-center justify-between p-4 sm:p-5 ${section.bgColor || 'bg-slate-50'} border-b ${section.borderColor || 'border-slate-200'}`}>
-            <div className="flex items-center gap-4 w-full">
-              <button onClick={() => toggleModule(section.id)} className="p-2 bg-white/50 hover:bg-white rounded-lg transition shadow-sm print:hidden">
-                {expandedModules[section.id] !== false ? <ChevronDown className="w-5 h-5 text-slate-600"/> : <ChevronRight className="w-5 h-5 text-slate-600"/>}
-              </button>
-              
-              {isEditing ? (
-                <input type="text" value={section.title || ''} onChange={(e) => updateSectionTitle(section.id, e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-lg font-black text-slate-800 w-full max-w-lg focus:ring-2 focus:ring-teal-500 outline-none shadow-inner" />
-              ) : (
-                <h3 className="text-xl font-black text-slate-800 cursor-pointer tracking-tight" onClick={() => toggleModule(section.id)}>{section.title}</h3>
-              )}
-            </div>
-            {isEditing && (
-              <button onClick={() => deleteSection(section.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-4 print:hidden" title="Excluir Módulo Completo">
-                <Trash2 className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-
-          {expandedModules[section.id] !== false && (
-            <div className="p-0">
-              {(section.items || []).map(item => {
-                if(!item) return null;
-                const IconComponent = getIconComponent(item.type);
-                return (
-                  <div key={item.id} className="flex items-start justify-between p-5 sm:p-6 border-b border-slate-100 hover:bg-slate-50/50 group transition">
-                    <div className="flex items-start gap-4 w-full">
-                      
-                      {isEditing && (
-                        <GripVertical className="w-5 h-5 text-slate-300 cursor-move mt-1 print:hidden" />
-                      )}
-                      
-                      <div className={`p-3 rounded-xl flex-shrink-0 ${item.color?.replace('text-', 'bg-').replace('500', '50').replace('600', '50') || 'bg-slate-100'}`}>
-                        <IconComponent className={`w-6 h-6 ${item.color || 'text-slate-500'}`} />
-                      </div>
-                      
-                      <div className="flex-1 pt-1">
-                        {isEditing ? (
-                          <input type="text" value={item.title || ''} onChange={(e) => updateItemTitle(section.id, item.id, e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-base font-bold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none shadow-sm" />
-                        ) : (
-                          <h4 className="text-base font-bold text-slate-800">{item.title}</h4>
-                        )}
-                        
-                        {/* BOTÕES DE AÇÃO: EXIBIDOS QUANDO EDIÇÃO ESTÁ DESLIGADA */}
-                        {!isEditing && (
-                          <div className="mt-3 flex flex-wrap gap-3 print:hidden">
-                            
-                            {item.fileName && item.url && (
-                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-4 py-2 rounded-lg transition shadow-sm w-fit">
-                                <Download className="w-4 h-4"/> Baixar {item.fileName}
-                              </a>
-                            )}
-                            
-                            {item.type === 'NativeExam' && (
-                              <button onClick={() => { setActiveExamItem(item); setLocalQuestions(exams[item.id]?.questions || []); }} className="flex items-center gap-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-lg transition shadow-md w-fit">
-                                <ClipboardList className="w-4 h-4"/> {(role === 'professor' || role === 'admin') ? 'Configurar Prova Oficial / Ver Notas' : 'Fazer Avaliação'}
-                              </button>
-                            )}
-                            
-                            {item.type === 'Link' && item.url && !item.fileName && (
-                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-lg transition shadow-sm w-fit">
-                                <Link className="w-4 h-4"/> Acessar Link Externo
-                              </a>
-                            )}
-                            
-                            {item.type === 'TextContent' && (
-                              <button onClick={() => setReadingItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-4 py-2 rounded-lg transition shadow-sm w-fit">
-                                <AlignLeft className="w-4 h-4"/> Ler Conteúdo da Aula
-                              </button>
-                            )}
-                            
-                            {item.type === 'MessageSquare' && (
-                              <button onClick={() => setActiveForumItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-4 py-2 rounded-lg transition shadow-sm w-fit">
-                                <MessageSquare className="w-4 h-4"/> Abrir Fórum Acadêmico
-                              </button>
-                            )}
-                            
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {isEditing && (
-                      <button onClick={() => deleteItem(section.id, item.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-4 print:hidden" title="Excluir Material">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-              
-              {isEditing && (
-                <div className="p-4 border-t border-dashed border-slate-200 bg-slate-50 flex justify-end print:hidden">
-                  <button onClick={() => handleOpenAddItemModal(section.id)} className="flex items-center gap-2 text-sm font-bold text-teal-700 hover:text-teal-800 bg-white px-5 py-2.5 rounded-lg border border-teal-200 shadow-sm transition hover:shadow-md">
-                    <Plus className="w-4 h-4"/> Adicionar Material neste Módulo
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )})}
     </div>
   );
 
@@ -1932,12 +1417,14 @@ function LmsEnterprisePortal() {
               <>
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-6 mt-4">
                   <div className="flex-1">
+                    {/* TÍTULO DA DISCIPLINA (Editável se professor/admin e Modo Edição Ativo) */}
                     {isEditing ? (
                       <input type="text" value={activeCourseObj?.nome || ''} onChange={(e) => updateCourseDetails('nome', e.target.value)} placeholder="Digite o Nome da Disciplina aqui..." className="w-full text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight bg-transparent border-b-2 border-dashed border-slate-300 focus:border-teal-500 focus:outline-none mb-3 pb-2 transition-colors" />
                     ) : (
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-3">{activeCourseObj?.nome}</h1>
                     )}
                     
+                    {/* DADOS SECUNDÁRIOS DA DISCIPLINA */}
                     {isEditing ? (
                       <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm w-fit">
                         <input type="text" value={activeCourseObj?.codigo || ''} onChange={(e) => updateCourseDetails('codigo', e.target.value)} placeholder="Cód: RMAB001" className="w-32 text-sm text-teal-700 font-bold bg-teal-50 px-3 py-1.5 rounded-lg border border-dashed border-teal-300 focus:border-teal-500 focus:outline-none transition-colors" />
@@ -1953,6 +1440,7 @@ function LmsEnterprisePortal() {
                     )}
                   </div>
                   
+                  {/* O BOTÃO QUE ATIVA O MODO DE EDIÇÃO */}
                   {hasEditPermission && (
                     <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-xl shadow-sm shrink-0 print:hidden">
                       <span className="text-xs font-bold text-slate-600 px-3 hidden sm:inline uppercase tracking-widest">Modo de Edição</span>
@@ -1964,6 +1452,7 @@ function LmsEnterprisePortal() {
                   )}
                 </div>
 
+                {/* CAIXA DE ALERTA DO MODO DE EDIÇÃO */}
                 {hasEditPermission && editMode && (
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 p-5 rounded-2xl mb-8 text-sm flex gap-4 print:hidden shadow-sm items-center">
                     <Shield className="w-8 h-8 text-amber-500 shrink-0"/>
@@ -1983,7 +1472,6 @@ function LmsEnterprisePortal() {
                   }</span>
                 </div>
 
-                {/* TELAS DA DISCIPLINA */}
                 {currentView === 'course_home' && renderCourseHome()}
                 {currentView === 'participants' && renderParticipants()}
                 {currentView === 'grades' && renderGradebook()}
@@ -1991,7 +1479,7 @@ function LmsEnterprisePortal() {
               </>
             )}
             
-            {/* RENDERIZAÇÃO DOS MODAIS (PÁGINA WYSIWYG, FORUM, PROVA, PERFIL) */}
+            {/* RENDERIZAÇÃO DOS MODAIS EM CAMADA SUPERIOR */}
             {viewingProfileId && renderProfileModal()}
             {activeForumItem && renderForumModal()}
             {activeExamItem && renderExamModal()}
