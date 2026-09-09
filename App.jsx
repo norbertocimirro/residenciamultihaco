@@ -61,7 +61,7 @@ class ErrorBoundary extends React.Component {
 }
 
 // ==========================================
-// HOOK BLINDADO DE SINCRONIZAÇÃO (NUVEM)
+// HOOK DE SINCRONIZAÇÃO EM TEMPO REAL (NUVEM)
 // ==========================================
 const useFirestoreDB = (docName, initialValue) => {
   const [data, setData] = useState(initialValue);
@@ -203,7 +203,7 @@ function LmsEnterprisePortal() {
       setCurrentView('admin_dashboard');
       setActiveCourseId(null);
     } else {
-      setCurrentView('user_home'); // Vai direto para o novo Dashboard!
+      setCurrentView('user_home'); 
       setActiveCourseId(null);
     }
   };
@@ -242,6 +242,11 @@ function LmsEnterprisePortal() {
       updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase();
       setDbUsers(updatedUsers);
     }
+    setEditingUserId(null);
+    setEditingUserName('');
+  };
+
+  const handleCancelEditUser = () => {
     setEditingUserId(null);
     setEditingUserName('');
   };
@@ -320,6 +325,14 @@ function LmsEnterprisePortal() {
   const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).map(item => item?.id === itemId ? { ...item, title: newTitle } : item) } : sec));
   const deleteItem = (sectionId, itemId) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).filter(item => item?.id !== itemId) } : sec));
 
+  const handleOpenAddItemModal = (sectionId) => {
+    setActiveSectionForNewItem(sectionId);
+    setNewItemTitle('');
+    setNewItemType('FileText');
+    setNewItemUrl('');
+    setNewFile(null);
+  };
+
   const handleConfirmAddItem = (e) => {
     e.preventDefault();
     if (!newItemTitle) return;
@@ -339,7 +352,8 @@ function LmsEnterprisePortal() {
         };
       }
       return sec;
-    });
+    })); // <--- O PARÊNTESE QUE FALTAVA FOI CORRIGIDO AQUI!
+    
     setActiveSectionForNewItem(null); 
   };
 
@@ -377,7 +391,6 @@ function LmsEnterprisePortal() {
   // RENDERIZAÇÃO DAS TELAS SECUNDÁRIAS
   // ==========================================
 
-  // O NOVO DASHBOARD DO PROFESSOR E RESIDENTE
   const renderUserHome = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
@@ -467,7 +480,13 @@ function LmsEnterprisePortal() {
                           {u.avatar}
                         </div>
                         {editingUserId === u.id ? (
-                          <input type="text" value={editingUserName} onChange={e => setEditingUserName(e.target.value)} className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs" autoFocus />
+                          <input 
+                            type="text" 
+                            value={editingUserName} 
+                            onChange={e => setEditingUserName(e.target.value)} 
+                            className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs"
+                            autoFocus
+                          />
                         ) : (
                           <span>{u.nome}</span>
                         )}
@@ -632,6 +651,20 @@ function LmsEnterprisePortal() {
     </div>
   );
 
+  const renderEmptyState = () => (
+    <div className="flex-1 flex items-center justify-center h-[60vh] animate-fade-in">
+      <div className="text-center p-12 max-w-sm">
+        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Shield className="w-10 h-10 text-slate-300"/>
+        </div>
+        <h2 className="text-2xl font-black text-slate-700">Acesso Restrito</h2>
+        <p className="text-slate-500 mt-2 text-sm leading-relaxed">
+          Você ainda não possui disciplinas ativas ou não foi matriculado em nenhuma turma no semestre atual.
+        </p>
+      </div>
+    </div>
+  );
+
   const renderCourseHome = () => (
     <div className="animate-fade-in relative">
       
@@ -647,6 +680,7 @@ function LmsEnterprisePortal() {
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome do Recurso</label>
                 <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos" className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
               </div>
+              
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tipo de Material</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -677,6 +711,7 @@ function LmsEnterprisePortal() {
                   )}
                 </div>
               )}
+
               <div className="pt-2">
                 <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md">
                   Salvar e Adicionar ao Curso
@@ -911,12 +946,8 @@ function LmsEnterprisePortal() {
               </>
             )}
 
-            {/* BOTÃO PÁGINA INICIAL COM O ONCLICK ATIVADO E DIRECIONANDO PARA O DASHBOARD */}
             {(role === 'professor' || role === 'aluno') && (
-              <button 
-                onClick={() => {setCurrentView('user_home'); setActiveCourseId(null); setEditMode(false);}} 
-                className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-bold transition-colors ${currentView === 'user_home' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}
-              >
+              <button onClick={() => {setCurrentView('user_home'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-bold transition-colors ${currentView === 'user_home' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
                 <Home className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && <span>Página Inicial</span>}
               </button>
@@ -997,6 +1028,7 @@ function LmsEnterprisePortal() {
             
             {currentView === 'user_home' && renderUserHome()}
             {currentView === 'admin_dashboard' && renderAdminDashboard()}
+            {currentView === 'admin_students' && renderAdminStudents()}
             {currentView === 'admin_users' && renderAdminUsers()}
             {currentView === 'empty_state' && renderEmptyState()}
 
