@@ -31,6 +31,9 @@ export default function LmsEnterprisePortal() {
 
   const canEdit = editMode && (role === 'admin' || role === 'professor');
 
+  // ==========================================
+  // HOOK DE LOCALSTORAGE
+  // ==========================================
   const useLocalStorage = (key, initialValue) => {
     const [storedValue, setStoredValue] = useState(() => {
       try {
@@ -46,7 +49,10 @@ export default function LmsEnterprisePortal() {
     return [storedValue, setStoredValue];
   };
 
-  const [courses, setCourses] = useLocalStorage('lms_v4_courses', [
+  // ==========================================
+  // DADOS DO SISTEMA
+  // ==========================================
+  const [courses, setCourses] = useLocalStorage('lms_v5_courses', [
     { id: 'c1', codigo: '001/003/07A', nome: 'Enfermagem Forense e Saúde da Família', professorId: 'prof1' },
     { id: 'c2', codigo: 'RMAB001', nome: 'Territorialização e Diagnóstico de Saúde', professorId: 'prof2' }
   ]);
@@ -62,12 +68,12 @@ export default function LmsEnterprisePortal() {
     }
   ];
 
-  const [courseContents, setCourseContents] = useLocalStorage('lms_v4_contents', {
+  const [courseContents, setCourseContents] = useLocalStorage('lms_v5_contents', {
     'c1': defaultModules,
     'c2': defaultModules
   });
 
-  const [courseStudents, setCourseStudents] = useLocalStorage('lms_v4_students', {
+  const [courseStudents, setCourseStudents] = useLocalStorage('lms_v5_students', {
     'c1': [
       { studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." },
       { studentId: 'stu2', ga: 2.9, gb: 5.8, gc: 0, faltas: [true, true, true], feedback: "Atenção às faltas." }
@@ -87,8 +93,11 @@ export default function LmsEnterprisePortal() {
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
-  const [newFile, setNewFile] = useState(null); // Estado para guardar o arquivo real selecionado
+  const [newFile, setNewFile] = useState(null);
 
+  // ==========================================
+  // LÓGICA DE RBAC E TROCA DE USUÁRIO
+  // ==========================================
   const visibleCourses = courses.filter(c => {
     if (role === 'admin') return true;
     if (role === 'professor') return c.professorId === currentUser.id;
@@ -125,6 +134,9 @@ export default function LmsEnterprisePortal() {
     }
   };
 
+  // ==========================================
+  // FUNÇÕES DE ADMINISTRAÇÃO (GESTOR)
+  // ==========================================
   const [newCourseCode, setNewCourseCode] = useState('');
   const [newCourseName, setNewCourseName] = useState('');
   const [newCourseProfId, setNewCourseProfId] = useState('');
@@ -156,13 +168,14 @@ export default function LmsEnterprisePortal() {
   const handleEnrollStudent = (e, courseId) => {
     e.preventDefault();
     if (!newStudentId) return;
-    const newStudentData = {
-      studentId: newStudentId, ga: 0, gb: 0, gc: 0, faltas: [false, false, false], feedback: ""
-    };
+    const newStudentData = { studentId: newStudentId, ga: 0, gb: 0, gc: 0, faltas: [false, false, false], feedback: "" };
     setCourseStudents({ ...courseStudents, [courseId]: [...(courseStudents[courseId] || []), newStudentData] });
     setNewStudentId('');
   };
 
+  // ==========================================
+  // VARIÁVEIS DERIVADAS DA DISCIPLINA ATIVA
+  // ==========================================
   const activeContent = courseContents[activeCourseId] || [];
   const rawActiveStudents = courseStudents[activeCourseId] || [];
   const activeCourseObj = courses.find(c => c.id === activeCourseId);
@@ -180,8 +193,10 @@ export default function LmsEnterprisePortal() {
     u.role === 'aluno' && !rawActiveStudents.some(s => s.studentId === u.id)
   );
 
+  // ==========================================
+  // FUNÇÕES DE CONTEÚDO E NOTAS
+  // ==========================================
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
-
   const updateContent = (newContent) => setCourseContents({ ...courseContents, [activeCourseId]: newContent });
 
   const addSection = () => {
@@ -191,26 +206,19 @@ export default function LmsEnterprisePortal() {
   };
 
   const updateSectionTitle = (id, newTitle) => updateContent(activeContent.map(sec => sec.id === id ? { ...sec, title: newTitle } : sec));
-
-  const deleteSection = (id) => {
-    if (window.confirm('Excluir este módulo e todos os seus arquivos?')) updateContent(activeContent.filter(sec => sec.id !== id));
-  };
-
-  const updateItemTitle = (sectionId, itemId, newTitle) => {
-    updateContent(activeContent.map(sec => sec.id === sectionId ? { ...sec, items: sec.items.map(item => item.id === itemId ? { ...item, title: newTitle } : item) } : sec));
-  };
-
+  const deleteSection = (id) => { if (window.confirm('Excluir este módulo e todos os seus arquivos?')) updateContent(activeContent.filter(sec => sec.id !== id)); };
+  const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec.id === sectionId ? { ...sec, items: sec.items.map(item => item.id === itemId ? { ...item, title: newTitle } : item) } : sec));
   const deleteItem = (sectionId, itemId) => updateContent(activeContent.map(sec => sec.id === sectionId ? { ...sec, items: sec.items.filter(item => item.id !== itemId) } : sec));
 
   // ==========================================
-  // LÓGICA DO MODAL COM UPLOAD REAL
+  // FUNÇÕES DO MODAL (UPLOAD)
   // ==========================================
   const handleOpenAddItemModal = (sectionId) => {
     setActiveSectionForNewItem(sectionId);
     setNewItemTitle('');
     setNewItemType('FileText');
     setNewItemUrl('');
-    setNewFile(null); // Reseta o arquivo ao abrir o modal
+    setNewFile(null);
   };
 
   const handleConfirmAddItem = (e) => {
@@ -233,7 +241,7 @@ export default function LmsEnterprisePortal() {
             type: newItemType, 
             color: color,
             url: newItemUrl || null,
-            fileName: newFile ? newFile.name : null // Salva o nome do arquivo enviado
+            fileName: newFile ? newFile.name : null
           }]
         };
       }
@@ -278,6 +286,407 @@ export default function LmsEnterprisePortal() {
       default: return FileText;
     }
   };
+
+  // ==========================================
+  // COMPONENTES DE TELA (VIEWS)
+  // ==========================================
+
+  const renderAdminDashboard = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Shield className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Governança Acadêmica - COREMU</h2>
+          <p className="text-sm text-slate-500 mt-1">Crie disciplinas, vincule professores (Preceptores) e matricule residentes.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Book className="w-5 h-5 text-teal-600"/> Abrir Nova Disciplina</h3>
+          <form onSubmit={handleCreateCourse} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Código</label>
+              <input type="text" required value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)} placeholder="Ex: RMAB001" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Nome da Disciplina</label>
+              <input type="text" required value={newCourseName} onChange={e => setNewCourseName(e.target.value)} placeholder="Ex: Saúde Coletiva" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Professor Titular / Preceptor</label>
+              <select required value={newCourseProfId} onChange={e => setNewCourseProfId(e.target.value)} className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+                <option value="">Selecione...</option>
+                {Object.values(SYSTEM_USERS).filter(u => u.role === 'professor').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </div>
+            <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition flex items-center justify-center gap-2">
+              <Plus className="w-4 h-4"/> Ativar e Criar Sala Virtual
+            </button>
+          </form>
+        </div>
+
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Layout className="w-5 h-5 text-blue-600"/> Matriz Curricular Global</h3>
+          {courses.length === 0 ? (
+            <div className="text-center p-8 border border-dashed rounded-xl bg-slate-50 text-slate-500">Nenhuma disciplina ativa no sistema.</div>
+          ) : (
+            <div className="space-y-3">
+              {courses.map(c => (
+                <div key={c.id} className="p-4 border border-slate-200 rounded-xl hover:shadow-md transition bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
+                    <h4 className="font-bold text-slate-800 mt-1">{c.nome}</h4>
+                    <p className="text-xs text-slate-500 mt-1">Professor: <strong>{SYSTEM_USERS[c.professorId]?.nome}</strong></p>
+                    <p className="text-xs text-slate-400">{(courseStudents[c.id] || []).length} aluno(s) matriculado(s)</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { setActiveCourseId(c.id); setCurrentView('admin_students'); }} className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-100 flex items-center gap-2">
+                      <UserPlus className="w-3.5 h-3.5"/> Alunos
+                    </button>
+                    <button onClick={() => handleDeleteCourse(c.id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100">
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAdminStudents = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={() => setCurrentView('admin_dashboard')} className="text-slate-500 hover:text-slate-800 font-bold text-sm flex items-center">
+          <ChevronRight className="w-4 h-4 rotate-180 mr-1"/> Voltar ao Painel
+        </button>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <h2 className="text-xl font-black text-slate-800">Gestão de Matrículas</h2>
+        <p className="text-sm text-slate-500 mt-1">Disciplina: <strong className="text-teal-700">{activeCourseObj?.codigo}</strong> - {activeCourseObj?.nome}</p>
+        
+        <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="mt-6 flex gap-3 max-w-lg">
+          <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+            <option value="">Selecione um residente...</option>
+            {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+          </select>
+          <button type="submit" className="bg-teal-800 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2">
+            <Plus className="w-4 h-4"/> Matricular
+          </button>
+        </form>
+
+        <div className="mt-8 border rounded-xl overflow-hidden">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-100 text-slate-600 font-bold border-b">
+              <tr>
+                <th className="p-3">Nome do Aluno</th>
+                <th className="p-3 text-center">Status</th>
+                <th className="p-3 text-right">Ação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {studentsInCourse.length === 0 ? (
+                <tr><td colSpan="3" className="p-6 text-center text-slate-500">Nenhum aluno matriculado nesta disciplina.</td></tr>
+              ) : (
+                studentsInCourse.map(s => (
+                  <tr key={s.studentId} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold text-slate-800">{s.nome}</td>
+                    <td className="p-3 text-center"><span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-1 rounded font-bold uppercase">Ativo</span></td>
+                    <td className="p-3 text-right">
+                      <button onClick={() => deleteStudent(s.studentId)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4 inline"/></button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderEmptyState = () => (
+    <div className="flex-1 flex items-center justify-center h-[60vh] animate-fade-in">
+      <div className="text-center p-12 max-w-sm">
+        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Shield className="w-10 h-10 text-slate-300"/>
+        </div>
+        <h2 className="text-2xl font-black text-slate-700">Acesso Restrito</h2>
+        <p className="text-slate-500 mt-2 text-sm leading-relaxed">
+          Você ainda não possui disciplinas ativas ou não foi matriculado em nenhuma turma no semestre atual.
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderCourseHome = () => (
+    <div className="animate-fade-in relative">
+      
+      {/* MODAL DE ADICIONAR RECURSOS COM UPLOAD REAL */}
+      {activeSectionForNewItem && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-black text-slate-800">Adicionar uma atividade ou recurso</h3>
+              <button onClick={() => setActiveSectionForNewItem(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5"/></button>
+            </div>
+            <form onSubmit={handleConfirmAddItem} className="p-6 space-y-5">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome do Recurso</label>
+                <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos" className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+              </div>
+              
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tipo de Material</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div onClick={() => setNewItemType('FileText')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'FileText' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                    <FileText className="w-6 h-6"/><span className="text-xs font-bold">Arquivo/PDF</span>
+                  </div>
+                  <div onClick={() => setNewItemType('Link')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'Link' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                    <Link className="w-6 h-6"/><span className="text-xs font-bold">Vídeo/Link</span>
+                  </div>
+                  <div onClick={() => setNewItemType('MessageSquare')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'MessageSquare' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                    <MessageSquare className="w-6 h-6"/><span className="text-xs font-bold">Fórum</span>
+                  </div>
+                  <div onClick={() => setNewItemType('Upload')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'Upload' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                    <Upload className="w-6 h-6"/><span className="text-xs font-bold">Tarefa (Envio)</span>
+                  </div>
+                </div>
+              </div>
+
+              {(newItemType === 'Link' || newItemType === 'FileText') && (
+                <div className="animate-fade-in border-t pt-4">
+                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">
+                    {newItemType === 'Link' ? 'URL do Link Externo' : 'Anexar Arquivo'}
+                  </label>
+                  {newItemType === 'Link' ? (
+                    <input type="url" value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="https://..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                  ) : (
+                    <input 
+                      type="file" 
+                      onChange={(e) => setNewFile(e.target.files[0])} 
+                      className="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer text-slate-500" 
+                    />
+                  )}
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md">
+                  Salvar e Adicionar ao Curso
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {canEdit && (
+        <div onClick={addSection} className="mb-6 border border-dashed border-teal-400 rounded-lg p-4 text-center bg-teal-50/50 hover:bg-teal-100 cursor-pointer transition text-teal-700 font-bold text-sm flex items-center justify-center gap-2 shadow-sm">
+          <Plus className="w-5 h-5"/> Adicionar novo Tópico / Módulo
+        </div>
+      )}
+
+      {activeContent.length === 0 && (
+        <div className="text-center p-12 bg-white rounded-xl border border-slate-200 text-slate-500">
+          <Book className="w-12 h-12 mx-auto mb-3 text-slate-300"/>
+          <p className="font-bold text-lg text-slate-700">O professor ainda não publicou conteúdos.</p>
+        </div>
+      )}
+
+      {activeContent.map(section => (
+        <div key={section.id} className={`mb-6 rounded-lg border ${section.borderColor} overflow-hidden shadow-sm bg-white`}>
+          <div className={`flex items-center justify-between p-3 ${section.bgColor} border-b ${section.borderColor}`}>
+            <div className="flex items-center gap-3 w-full">
+              <button onClick={() => toggleModule(section.id)} className="p-1 hover:bg-slate-200 rounded">
+                {expandedModules[section.id] !== false ? <ChevronDown className="w-5 h-5 text-slate-500"/> : <ChevronRight className="w-5 h-5 text-slate-500"/>}
+              </button>
+              {canEdit ? (
+                <input type="text" value={section.title} onChange={(e) => updateSectionTitle(section.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-base font-bold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
+              ) : (
+                <h3 className="text-base font-bold text-slate-800 cursor-pointer" onClick={() => toggleModule(section.id)}>{section.title}</h3>
+              )}
+            </div>
+            {canEdit && (
+              <button onClick={() => deleteSection(section.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
+            )}
+          </div>
+
+          {expandedModules[section.id] !== false && (
+            <div className="p-0">
+              {section.items.map(item => {
+                const IconComponent = getIconComponent(item.type);
+                return (
+                  <div key={item.id} className="flex items-start justify-between p-4 border-b border-slate-100 hover:bg-slate-50 group">
+                    <div className="flex items-start gap-3 w-full">
+                      {canEdit && <GripVertical className="w-4 h-4 text-slate-300 cursor-move mt-1" />}
+                      <IconComponent className={`w-5 h-5 ${item.color} flex-shrink-0 mt-0.5`} />
+                      <div className="flex-1">
+                        {canEdit ? (
+                          <input type="text" value={item.title} onChange={(e) => updateItemTitle(section.id, item.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-sm font-semibold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
+                        ) : (
+                          <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
+                        )}
+                        
+                        {!canEdit && item.fileName && (
+                          <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 mt-1 bg-slate-100 w-fit px-2 py-0.5 rounded border border-slate-200">
+                            <Paperclip className="w-3 h-3"/> {item.fileName}
+                          </div>
+                        )}
+                        {!canEdit && item.url && (
+                          <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline mt-1 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
+                            <Link className="w-3 h-3"/> Acessar Link Externo
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    {canEdit && (
+                      <button onClick={() => deleteItem(section.id, item.id)} className="p-1 text-slate-300 hover:text-red-500 transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
+                    )}
+                  </div>
+                );
+              })}
+              {canEdit && (
+                <div className="p-3 border-t border-dashed border-slate-300 bg-slate-50 flex justify-end">
+                  <button onClick={() => handleOpenAddItemModal(section.id)} className="flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-3 py-1.5 rounded-md border border-teal-100 shadow-sm transition hover:shadow-md">
+                    <Plus className="w-4 h-4"/> Adicionar material ou recurso
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderGradebook = () => (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in">
+      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <div>
+          <h3 className="font-bold text-lg text-slate-800">Relatório de Notas</h3>
+          <p className="text-xs text-slate-500">Cálculo e consolidação do boletim.</p>
+        </div>
+        {(role === 'professor' || role === 'admin') && (
+          <button className="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2 hover:bg-slate-300">
+            <Download className="w-4 h-4"/> Exportar Excel
+          </button>
+        )}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-800 text-white border-b border-slate-300">
+              <th className="p-3 font-semibold w-1/4">Estudante</th>
+              <th className="p-3 font-semibold border-x border-slate-600 text-center">GA</th>
+              <th className="p-3 font-semibold border-x border-slate-600 text-center">GB</th>
+              <th className="p-3 font-semibold border-x border-slate-600 text-center">GC</th>
+              <th className="p-3 font-semibold bg-teal-800 text-center">Total</th>
+              <th className="p-3 font-semibold border-x border-slate-600 text-center">Status</th>
+              <th className="p-3 font-semibold">Feedback Contínuo</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {visibleGradesAndAttendance.length === 0 ? (
+              <tr><td colSpan="7" className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso às notas.</td></tr>
+            ) : (
+              visibleGradesAndAttendance.map((aluno, idx) => {
+                const total = (aluno.ga + aluno.gb + aluno.gc).toFixed(2);
+                const isApproved = total >= 14 || (aluno.gc > 0 && total >= 15);
+
+                return (
+                  <tr key={aluno.studentId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                    <td className="p-3 font-bold text-slate-700 border-r border-slate-200">{aluno.nome}</td>
+                    
+                    <td className="p-2 border-r border-slate-200 text-center">
+                      {canEdit ? (
+                        <input type="number" step="0.1" value={aluno.ga} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
+                      ) : (<span className="font-bold text-slate-700">{aluno.ga}</span>)}
+                    </td>
+                    <td className="p-2 border-r border-slate-200 text-center">
+                      {canEdit ? (
+                        <input type="number" step="0.1" value={aluno.gb} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
+                      ) : (<span className="font-bold text-slate-700">{aluno.gb}</span>)}
+                    </td>
+                    <td className="p-2 border-r border-slate-200 text-center">
+                      {canEdit ? (
+                        <input type="number" step="0.1" value={aluno.gc} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
+                      ) : (<span className="font-bold text-slate-700">{aluno.gc}</span>)}
+                    </td>
+                    
+                    <td className="p-3 border-r border-slate-200 text-center font-black bg-slate-100 text-base">{total}</td>
+                    
+                    <td className="p-3 border-r border-slate-200 text-center">
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                        {isApproved ? 'Aprovado' : 'Em Exame'}
+                      </span>
+                    </td>
+                    
+                    <td className="p-2">
+                      {canEdit ? (
+                        <input type="text" value={aluno.feedback} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
+                      ) : (<span className="text-xs text-slate-500 italic">{aluno.feedback || "Sem feedback no momento."}</span>)}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderAttendance = () => (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in">
+      <div className="p-4 border-b border-slate-200 bg-slate-50">
+        <h3 className="font-bold text-lg text-slate-800">Diário de Classe - Frequência</h3>
+        <p className="text-xs text-slate-500">Verde = Presente | Preto = Falta. Somente docentes podem alterar as faltas.</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-200 text-slate-700">
+              <th rowSpan="2" className="p-2 border border-slate-300 font-bold w-1/3">Estudante</th>
+              <th rowSpan="2" className="p-2 border border-slate-300 font-bold text-center">Faltas Computadas</th>
+              <th colSpan="3" className="p-2 border border-slate-300 font-bold text-center bg-slate-300">Aulas do Dia</th>
+            </tr>
+            <tr className="bg-slate-100 text-slate-700 text-center text-[10px]">
+              <th className="p-1 border border-slate-300">07:30 - 08:20</th>
+              <th className="p-1 border border-slate-300">08:20 - 09:10</th>
+              <th className="p-1 border border-slate-300">09:10 - 10:00</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleGradesAndAttendance.length === 0 ? (
+              <tr><td colSpan="5" className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso ao diário.</td></tr>
+            ) : (
+              visibleGradesAndAttendance.map((aluno) => {
+                const qtdeFaltas = aluno.faltas.filter(f => f).length;
+                return (
+                  <tr key={aluno.studentId} className="hover:bg-slate-50">
+                    <td className="p-2 border border-slate-200 font-medium text-slate-800">{aluno.nome}</td>
+                    <td className="p-2 border border-slate-200 text-center">
+                      <span className={`font-black text-sm ${qtdeFaltas > 1 ? 'text-red-600' : 'text-slate-700'}`}>{qtdeFaltas}</span>
+                    </td>
+                    {aluno.faltas.map((falta, i) => (
+                      <td key={i} className={`p-2 border border-slate-200 text-center transition-colors ${canEdit ? 'cursor-pointer hover:opacity-80' : ''} ${falta ? 'bg-slate-800' : 'bg-emerald-700'}`} onClick={() => canEdit && toggleAttendance(aluno.studentId, i)}>
+                        <input type="checkbox" checked={!falta} readOnly className="w-4 h-4 rounded text-white pointer-events-none" />
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-800 overflow-hidden">
@@ -423,155 +832,7 @@ export default function LmsEnterprisePortal() {
                   }</span>
                 </div>
 
-                {/* ========================================================================= */}
-                {/* INÍCIO DO COURSE_HOME E MODAL */}
-                {/* ========================================================================= */}
-                {currentView === 'course_home' && (
-                  <div className="animate-fade-in relative">
-                    
-                    {/* MODAL DE ADICIONAR RECURSOS COM UPLOAD REAL */}
-                    {activeSectionForNewItem && (
-                      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
-                          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 className="font-black text-slate-800">Adicionar uma atividade ou recurso</h3>
-                            <button onClick={() => setActiveSectionForNewItem(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5"/></button>
-                          </div>
-                          <form onSubmit={handleConfirmAddItem} className="p-6 space-y-5">
-                            <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome do Recurso</label>
-                              <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos" className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-                            </div>
-                            
-                            <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tipo de Material</label>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div onClick={() => setNewItemType('FileText')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'FileText' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                                  <FileText className="w-6 h-6"/><span className="text-xs font-bold">Arquivo/PDF</span>
-                                </div>
-                                <div onClick={() => setNewItemType('Link')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'Link' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                                  <Link className="w-6 h-6"/><span className="text-xs font-bold">Vídeo/Link</span>
-                                </div>
-                                <div onClick={() => setNewItemType('MessageSquare')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'MessageSquare' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                                  <MessageSquare className="w-6 h-6"/><span className="text-xs font-bold">Fórum</span>
-                                </div>
-                                <div onClick={() => setNewItemType('Upload')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'Upload' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                                  <Upload className="w-6 h-6"/><span className="text-xs font-bold">Tarefa (Envio)</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* CAMPOS DE UPLOAD E LINK */}
-                            {(newItemType === 'Link' || newItemType === 'FileText') && (
-                              <div className="animate-fade-in border-t pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase block mb-2">
-                                  {newItemType === 'Link' ? 'URL do Link Externo' : 'Anexar Arquivo'}
-                                </label>
-                                {newItemType === 'Link' ? (
-                                  <input type="url" value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="https://..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-                                ) : (
-                                  <input 
-                                    type="file" 
-                                    onChange={(e) => setNewFile(e.target.files[0])} 
-                                    className="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer text-slate-500" 
-                                  />
-                                )}
-                              </div>
-                            )}
-
-                            <div className="pt-2">
-                              <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md">
-                                Salvar e Adicionar ao Curso
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                    )}
-
-                    {canEdit && (
-                      <div onClick={addSection} className="mb-6 border border-dashed border-teal-400 rounded-lg p-4 text-center bg-teal-50/50 hover:bg-teal-100 cursor-pointer transition text-teal-700 font-bold text-sm flex items-center justify-center gap-2 shadow-sm">
-                        <Plus className="w-5 h-5"/> Adicionar novo Tópico / Módulo
-                      </div>
-                    )}
-
-                    {activeContent.length === 0 && (
-                      <div className="text-center p-12 bg-white rounded-xl border border-slate-200 text-slate-500">
-                        <Book className="w-12 h-12 mx-auto mb-3 text-slate-300"/>
-                        <p className="font-bold text-lg text-slate-700">O professor ainda não publicou conteúdos.</p>
-                      </div>
-                    )}
-
-                    {activeContent.map(section => (
-                      <div key={section.id} className={`mb-6 rounded-lg border ${section.borderColor} overflow-hidden shadow-sm bg-white`}>
-                        <div className={`flex items-center justify-between p-3 ${section.bgColor} border-b ${section.borderColor}`}>
-                          <div className="flex items-center gap-3 w-full">
-                            <button onClick={() => toggleModule(section.id)} className="p-1 hover:bg-slate-200 rounded">
-                              {expandedModules[section.id] !== false ? <ChevronDown className="w-5 h-5 text-slate-500"/> : <ChevronRight className="w-5 h-5 text-slate-500"/>}
-                            </button>
-                            {canEdit ? (
-                              <input type="text" value={section.title} onChange={(e) => updateSectionTitle(section.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-base font-bold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
-                            ) : (
-                              <h3 className="text-base font-bold text-slate-800 cursor-pointer" onClick={() => toggleModule(section.id)}>{section.title}</h3>
-                            )}
-                          </div>
-                          {canEdit && (
-                            <button onClick={() => deleteSection(section.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
-                          )}
-                        </div>
-
-                        {expandedModules[section.id] !== false && (
-                          <div className="p-0">
-                            {section.items.map(item => {
-                              const IconComponent = getIconComponent(item.type);
-                              return (
-                                <div key={item.id} className="flex items-start justify-between p-4 border-b border-slate-100 hover:bg-slate-50 group">
-                                  <div className="flex items-start gap-3 w-full">
-                                    {canEdit && <GripVertical className="w-4 h-4 text-slate-300 cursor-move mt-1" />}
-                                    <IconComponent className={`w-5 h-5 ${item.color} flex-shrink-0 mt-0.5`} />
-                                    <div className="flex-1">
-                                      {canEdit ? (
-                                        <input type="text" value={item.title} onChange={(e) => updateItemTitle(section.id, item.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-sm font-semibold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
-                                      ) : (
-                                        <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
-                                      )}
-                                      
-                                      {/* Mostra indicação visual do arquivo/link se existir */}
-                                      {!canEdit && item.fileName && (
-                                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 mt-1 bg-slate-100 w-fit px-2 py-0.5 rounded border border-slate-200">
-                                          <Paperclip className="w-3 h-3"/> {item.fileName}
-                                        </div>
-                                      )}
-                                      {!canEdit && item.url && (
-                                        <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline mt-1 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
-                                          <Link className="w-3 h-3"/> Acessar Link Externo
-                                        </a>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {canEdit && (
-                                    <button onClick={() => deleteItem(section.id, item.id)} className="p-1 text-slate-300 hover:text-red-500 transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
-                                  )}
-                                </div>
-                              );
-                            })}
-                            {canEdit && (
-                              <div className="p-3 border-t border-dashed border-slate-300 bg-slate-50 flex justify-end">
-                                <button onClick={() => handleOpenAddItemModal(section.id)} className="flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-3 py-1.5 rounded-md border border-teal-100 shadow-sm transition hover:shadow-md">
-                                  <Plus className="w-4 h-4"/> Adicionar material ou recurso
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {/* ========================================================================= */}
-                {/* FIM DO COURSE_HOME E MODAL */}
-                {/* ========================================================================= */}
-
+                {currentView === 'course_home' && renderCourseHome()}
                 {currentView === 'grades' && renderGradebook()}
                 {currentView === 'attendance' && renderAttendance()}
               </>
