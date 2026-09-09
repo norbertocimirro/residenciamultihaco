@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -7,7 +7,8 @@ import {
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check, Loader2, Printer
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, 
+  Edit2, Check, Loader2, Printer, AlignLeft, ClipboardList, Send
 } from 'lucide-react';
 
 // ==========================================
@@ -41,21 +42,15 @@ class ErrorBoundary extends React.Component {
     super(props);
     this.state = { hasError: false, error: null, info: null };
   }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, info) {
-    this.setState({ info });
-  }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { this.setState({ info }); }
   render() {
     if (this.state.hasError) {
       return (
         <div className="p-8 bg-red-50 h-screen overflow-auto">
           <h1 className="text-2xl font-bold text-red-700 mb-4">🚨 Ocorreu um Erro no Sistema</h1>
           <p className="text-slate-700 mb-4">Tire um print do erro abaixo para correção:</p>
-          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
-            {this.state.error?.toString()}
-          </pre>
+          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">{this.state.error?.toString()}</pre>
         </div>
       );
     }
@@ -64,7 +59,7 @@ class ErrorBoundary extends React.Component {
 }
 
 // ==========================================
-// HOOK DE SINCRONIZAÇÃO EM TEMPO REAL
+// HOOK DE SINCRONIZAÇÃO (NUVEM)
 // ==========================================
 const useFirestoreDB = (docName, initialValue) => {
   const [data, setData] = useState(initialValue);
@@ -75,9 +70,8 @@ const useFirestoreDB = (docName, initialValue) => {
     try {
       const unsub = onSnapshot(doc(db, 'coremu_database', docName), 
         (docSnap) => {
-          if (docSnap.exists()) {
-            setData(docSnap.data().value || initialValue);
-          } else {
+          if (docSnap.exists()) setData(docSnap.data().value || initialValue);
+          else {
             setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch(e => console.error(e));
             setData(initialValue);
           }
@@ -139,8 +133,11 @@ function LmsEnterprisePortal() {
   });
 
   const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', {
-    'c1': [{ id: 'col1', label: '07/07 - 07:30' }, { id: 'col2', label: '07/07 - 08:20' }, { id: 'col3', label: '07/07 - 09:10' }]
+    'c1': [{ id: 'col1', label: '07/07 - 07:30' }, { id: 'col2', label: '07/07 - 08:20' }]
   });
+
+  // NOVA TABELA: Fóruns (Mensagens em tempo real)
+  const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums', {});
 
   // Tratamento de Segurança das Variáveis
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
@@ -148,6 +145,7 @@ function LmsEnterprisePortal() {
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
   const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
   const attendanceCols = typeof dbAttendanceCols === 'object' && dbAttendanceCols !== null ? dbAttendanceCols : {};
+  const forums = typeof dbForums === 'object' && dbForums !== null ? dbForums : {};
 
   // 2. ESTADOS DA INTERFACE
   const [activeUserId, setActiveUserId] = useState('admin1');
@@ -163,13 +161,20 @@ function LmsEnterprisePortal() {
   const hasEditPermission = role === 'admin' || role === 'professor';
   const isEditing = editMode && hasEditPermission;
 
-  // 3. ESTADOS DOS MODAIS
+  // 3. ESTADOS DOS MODAIS E FORMULÁRIOS
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
+  const [newItemTextContent, setNewItemTextContent] = useState(''); // Novo para textos longos
   const [newFile, setNewFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false); // NOVO ESTADO DE UPLOAD
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Estados de Leitura/Fórum
+  const [readingItem, setReadingItem] = useState(null); // Modal de Leitura de Texto
+  const [activeForumItem, setActiveForumItem] = useState(null); // Modal do Fórum
+  const [newForumMsg, setNewForumMsg] = useState('');
+  const chatEndRef = useRef(null); // Para scrollar o chat para baixo
 
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('aluno');
@@ -181,7 +186,7 @@ function LmsEnterprisePortal() {
   const [newStudentId, setNewStudentId] = useState('');
 
   // Tela de Loading enquanto o Firebase Baixa os Dados
-  const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded && colsLoaded;
+  const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded && colsLoaded && forumsLoaded;
   if (!isDbReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
@@ -219,7 +224,35 @@ function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // FUNÇÕES DE GESTÃO
+  // FUNÇÕES DE FÓRUM E LEITURA
+  // ==========================================
+  const handleSendForumMessage = (e) => {
+    e.preventDefault();
+    if (!newForumMsg.trim() || !activeForumItem) return;
+
+    const currentMsgs = forums[activeForumItem.id] || [];
+    const newMsg = {
+      id: Date.now(),
+      text: newForumMsg,
+      authorId: currentUser.id,
+      authorName: currentUser.nome,
+      authorRole: currentUser.role,
+      avatar: currentUser.avatar,
+      timestamp: new Date().toISOString()
+    };
+
+    setDbForums({ ...forums, [activeForumItem.id]: [...currentMsgs, newMsg] });
+    setNewForumMsg('');
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  const formatTime = (isoString) => {
+    const d = new Date(isoString);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + d.toLocaleDateString();
+  };
+
+  // ==========================================
+  // FUNÇÕES DE GESTÃO GERAL
   // ==========================================
   const handleCreateUser = (e) => {
     e.preventDefault();
@@ -293,11 +326,7 @@ function LmsEnterprisePortal() {
     e.preventDefault();
     if (!newStudentId) return;
     const currentColsLength = (attendanceCols[courseId] || []).length;
-    const newStudentData = { 
-      studentId: newStudentId, ga: 0, gb: 0, gc: 0, 
-      faltas: new Array(currentColsLength).fill(false), 
-      feedback: "" 
-    };
+    const newStudentData = { studentId: newStudentId, ga: 0, gb: 0, gc: 0, faltas: new Array(currentColsLength).fill(false), feedback: "" };
     const currentEnrolled = Array.isArray(courseStudents[courseId]) ? courseStudents[courseId] : [];
     setDbStudents({ ...courseStudents, [courseId]: [...currentEnrolled, newStudentData] });
     setNewStudentId('');
@@ -312,25 +341,18 @@ function LmsEnterprisePortal() {
   const handleAddAttendanceCol = () => {
     const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00 às 10:00):");
     if (!label) return;
-    
     const currentCols = attendanceCols[activeCourseId] || [];
     const newCols = [...currentCols, { id: `col_${Date.now()}`, label }];
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
-
-    const updatedStudents = rawActiveStudents.map(s => ({
-      ...s,
-      faltas: [...(s.faltas || []), false]
-    }));
+    const updatedStudents = rawActiveStudents.map(s => ({ ...s, faltas: [...(s.faltas || []), false] }));
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
   };
 
   const handleRemoveAttendanceCol = (colIndex) => {
     if (!window.confirm('Deseja excluir esta aula do registro de todos os alunos?')) return;
-    
     const currentCols = attendanceCols[activeCourseId] || [];
     const newCols = currentCols.filter((_, i) => i !== colIndex);
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
-
     const updatedStudents = rawActiveStudents.map(s => {
       const newFaltas = [...(s.faltas || [])];
       newFaltas.splice(colIndex, 1);
@@ -379,10 +401,10 @@ function LmsEnterprisePortal() {
     setNewItemTitle('');
     setNewItemType('FileText');
     setNewItemUrl('');
+    setNewItemTextContent('');
     setNewFile(null);
   };
 
-  // NOVA LÓGICA DE UPLOAD REAL
   const handleConfirmAddItem = async (e) => {
     e.preventDefault();
     if (!newItemTitle) return;
@@ -392,6 +414,8 @@ function LmsEnterprisePortal() {
     else if (newItemType === 'Link') color = 'text-blue-500';
     else if (newItemType === 'MessageSquare') color = 'text-purple-600';
     else if (newItemType === 'Upload') color = 'text-teal-600';
+    else if (newItemType === 'TextContent') color = 'text-amber-600';
+    else if (newItemType === 'Exam') color = 'text-rose-600';
 
     let finalUrl = newItemUrl || null;
     let finalFileName = newFile ? newFile.name : null;
@@ -416,7 +440,13 @@ function LmsEnterprisePortal() {
         return {
           ...sec,
           items: [...(sec.items || []), { 
-            id: `item_${Date.now()}`, title: newItemTitle, type: newItemType, color: color, url: finalUrl, fileName: finalFileName 
+            id: `item_${Date.now()}`, 
+            title: newItemTitle, 
+            type: newItemType, 
+            color: color, 
+            url: finalUrl, 
+            fileName: finalFileName,
+            textContent: newItemType === 'TextContent' ? newItemTextContent : null
           }]
         };
       }
@@ -442,24 +472,24 @@ function LmsEnterprisePortal() {
     })});
   };
 
-  const handlePrintPDF = () => {
-    window.print();
-  };
+  const handlePrintPDF = () => { window.print(); };
 
   const getIconComponent = (type) => {
     switch (type) {
-      case 'FileText': return FileText || (() => <span>FT</span>);
-      case 'MessageSquare': return MessageSquare || (() => <span>MS</span>);
-      case 'Folder': return Folder || (() => <span>FD</span>);
-      case 'Upload': return Upload || (() => <span>UP</span>);
-      case 'CheckCircle': return CheckCircle || (() => <span>CC</span>);
-      case 'Link': return Link || (() => <span>LK</span>);
-      default: return FileText || (() => <span>FT</span>);
+      case 'FileText': return FileText;
+      case 'MessageSquare': return MessageSquare;
+      case 'Folder': return Folder;
+      case 'Upload': return Upload;
+      case 'CheckCircle': return CheckCircle;
+      case 'Link': return Link;
+      case 'TextContent': return AlignLeft;
+      case 'Exam': return ClipboardList;
+      default: return FileText;
     }
   };
 
   // ==========================================
-  // RENDERIZAÇÃO DAS TELAS SECUNDÁRIAS
+  // RENDERIZAÇÃO DAS TELAS
   // ==========================================
   const renderUserHome = () => (
     <div className="space-y-6 animate-fade-in">
@@ -718,56 +748,173 @@ function LmsEnterprisePortal() {
   const renderCourseHome = () => (
     <div className="animate-fade-in relative">
       
+      {/* MODAL DE ADICIONAR ITEM AMPLIADO (6 OPÇÕES) */}
       {activeSectionForNewItem && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <h3 className="font-black text-slate-800">Adicionar atividade ou recurso</h3>
               <button onClick={() => setActiveSectionForNewItem(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5"/></button>
             </div>
-            <form onSubmit={handleConfirmAddItem} className="p-6 space-y-5">
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome do Recurso</label>
-                <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos" className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tipo de Material</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div onClick={() => setNewItemType('FileText')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'FileText' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                    <FileText className="w-6 h-6"/><span className="text-xs font-bold">Arquivo/PDF</span>
-                  </div>
-                  <div onClick={() => setNewItemType('Link')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'Link' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                    <Link className="w-6 h-6"/><span className="text-xs font-bold">Vídeo/Link</span>
-                  </div>
-                  <div onClick={() => setNewItemType('MessageSquare')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'MessageSquare' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                    <MessageSquare className="w-6 h-6"/><span className="text-xs font-bold">Fórum</span>
-                  </div>
-                  <div onClick={() => setNewItemType('Upload')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all ${newItemType === 'Upload' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                    <Upload className="w-6 h-6"/><span className="text-xs font-bold">Tarefa (Envio)</span>
+            <div className="p-6 overflow-y-auto">
+              <form onSubmit={handleConfirmAddItem} className="space-y-5">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Título / Nome do Recurso</label>
+                  <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos" className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Selecione o Tipo de Material</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div onClick={() => setNewItemType('FileText')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'FileText' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                      <FileText className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Arquivo<br/>PDF/Doc</span>
+                    </div>
+                    <div onClick={() => setNewItemType('TextContent')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'TextContent' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                      <AlignLeft className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Página<br/>Texto Escrito</span>
+                    </div>
+                    <div onClick={() => setNewItemType('Link')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'Link' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                      <Link className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Link Externo<br/>Vídeo/Site</span>
+                    </div>
+                    <div onClick={() => setNewItemType('Exam')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'Exam' ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                      <ClipboardList className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Prova<br/>Avaliação</span>
+                    </div>
+                    <div onClick={() => setNewItemType('MessageSquare')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'MessageSquare' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                      <MessageSquare className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Fórum<br/>Dúvidas FAQ</span>
+                    </div>
+                    <div onClick={() => setNewItemType('Upload')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'Upload' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                      <Upload className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Tarefa<br/>Envio de PDF</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {(newItemType === 'Link' || newItemType === 'FileText') && (
                 <div className="animate-fade-in border-t pt-4">
-                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">
-                    {newItemType === 'Link' ? 'URL do Link Externo' : 'Anexar Arquivo do Computador'}
-                  </label>
-                  {newItemType === 'Link' ? (
-                    <input type="url" value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="https://..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-                  ) : (
-                    <input type="file" onChange={(e) => setNewFile(e.target.files[0])} className="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer text-slate-500" />
-                  )}
+                  {newItemType === 'FileText' || newItemType === 'Upload' ? (
+                    <>
+                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Anexar Arquivo do Computador</label>
+                      <input type="file" onChange={(e) => setNewFile(e.target.files[0])} className="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer text-slate-500" />
+                    </>
+                  ) : newItemType === 'Link' ? (
+                    <>
+                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">URL do Link (Vídeo, Site, etc)</label>
+                      <input type="url" required value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="https://..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+                    </>
+                  ) : newItemType === 'Exam' ? (
+                    <>
+                      <label className="text-xs font-bold text-rose-600 uppercase block mb-2">Link da Prova (Recomendado: Google Forms)</label>
+                      <input type="url" required value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="Cole aqui o link do formulário da prova..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 outline-none" />
+                      <p className="text-[10px] text-slate-500 mt-1">O botão de acesso ficará em destaque vermelho para os residentes.</p>
+                    </>
+                  ) : newItemType === 'TextContent' ? (
+                    <>
+                      <label className="text-xs font-bold text-amber-600 uppercase block mb-2">Conteúdo da Página (Texto)</label>
+                      <textarea required rows="6" value={newItemTextContent} onChange={e => setNewItemTextContent(e.target.value)} placeholder="Digite ou cole o texto do artigo/aula aqui..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none"></textarea>
+                    </>
+                  ) : newItemType === 'MessageSquare' ? (
+                    <div className="bg-purple-50 text-purple-800 p-3 rounded-lg text-xs font-medium border border-purple-100">
+                      O Fórum será criado automaticamente e permitirá troca de mensagens em tempo real entre alunos e professores. Nenhuma configuração adicional é necessária.
+                    </div>
+                  ) : null}
                 </div>
-              )}
-              <div className="pt-2">
-                <button type="submit" disabled={isUploading} className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md disabled:bg-slate-400">
-                  {isUploading ? (
-                    <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Enviando arquivo...</span>
-                  ) : 'Salvar e Adicionar ao Curso'}
-                </button>
+
+                <div className="pt-2">
+                  <button type="submit" disabled={isUploading} className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md disabled:bg-slate-400">
+                    {isUploading ? (
+                      <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Enviando arquivo...</span>
+                    ) : 'Salvar e Publicar no Mural'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE LEITURA DE TEXTO (TEXTCONTENT) */}
+      {readingItem && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><AlignLeft className="w-5 h-5"/></div>
+                <h2 className="font-black text-xl text-slate-800">{readingItem.title}</h2>
               </div>
-            </form>
+              <button onClick={() => setReadingItem(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6"/></button>
+            </div>
+            <div className="p-6 sm:p-10 overflow-y-auto bg-slate-50/50">
+              <div className="prose prose-slate max-w-none text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {readingItem.textContent}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DO FÓRUM / CHAT (MESSAGESQUARE) */}
+      {activeForumItem && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
+            
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-purple-900 text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <MessageSquare className="w-5 h-5 text-purple-200"/>
+                <div>
+                  <h2 className="font-bold leading-tight">{activeForumItem.title}</h2>
+                  <p className="text-[10px] text-purple-200 uppercase font-medium">Fórum de Dúvidas da Disciplina</p>
+                </div>
+              </div>
+              <button onClick={() => setActiveForumItem(null)} className="p-2 text-purple-200 hover:bg-purple-800 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+            </div>
+            
+            <div className="flex-1 p-4 overflow-y-auto bg-slate-50 space-y-4">
+              {!(forums[activeForumItem.id] || []).length ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                  <MessageSquare className="w-12 h-12 mb-3 opacity-20"/>
+                  <p className="font-medium">Nenhuma mensagem neste fórum.</p>
+                  <p className="text-xs mt-1">Seja o primeiro a enviar uma dúvida ou aviso!</p>
+                </div>
+              ) : (
+                (forums[activeForumItem.id] || []).map((msg) => {
+                  const isMe = msg.authorId === currentUser.id;
+                  return (
+                    <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                      <div className="flex items-end gap-2 max-w-[85%]">
+                        {!isMe && (
+                          <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 mb-1">
+                            {msg.avatar}
+                          </div>
+                        )}
+                        <div className={`px-4 py-2.5 rounded-2xl ${isMe ? 'bg-purple-600 text-white rounded-br-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm'}`}>
+                          {!isMe && (
+                            <div className="flex items-baseline gap-2 mb-1">
+                              <span className="text-[11px] font-bold text-purple-700">{msg.authorName}</span>
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400">{msg.authorRole === 'aluno' ? 'Residente' : msg.authorRole}</span>
+                            </div>
+                          )}
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                          <p className={`text-[9px] mt-1 text-right ${isMe ? 'text-purple-200' : 'text-slate-400'}`}>{formatTime(msg.timestamp)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="p-4 bg-white border-t border-slate-200 shrink-0">
+              <form onSubmit={handleSendForumMessage} className="flex gap-2 relative">
+                <input 
+                  type="text" 
+                  value={newForumMsg} 
+                  onChange={e => setNewForumMsg(e.target.value)} 
+                  placeholder="Digite sua mensagem para a turma..." 
+                  className="w-full bg-slate-100 border-transparent focus:bg-white focus:border-purple-300 focus:ring-2 focus:ring-purple-200 rounded-full px-5 py-3 text-sm pr-12 outline-none transition-all"
+                />
+                <button type="submit" disabled={!newForumMsg.trim()} className="absolute right-1.5 top-1.5 bottom-1.5 aspect-square bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 text-white rounded-full flex items-center justify-center transition-colors">
+                  <Send className="w-4 h-4 ml-0.5" />
+                </button>
+              </form>
+            </div>
+
           </div>
         </div>
       )}
@@ -822,16 +969,40 @@ function LmsEnterprisePortal() {
                           <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
                         )}
                         
-                        {item.fileName && (
-                          <a href={item.url || '#'} target={item.url ? "_blank" : "_self"} rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-slate-600 mt-1 bg-slate-100 w-fit px-2 py-1 rounded border border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition cursor-pointer print:hidden">
-                            <Paperclip className="w-3 h-3"/> {item.fileName} 
-                            {item.url && <Download className="w-3 h-3 ml-1 text-teal-600"/>}
-                          </a>
-                        )}
-                        {item.url && !item.fileName && !isEditing && (
-                          <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline mt-1 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100 print:hidden">
-                            <Link className="w-3 h-3"/> Acessar Link Externo
-                          </a>
+                        {/* RENDERIZAÇÃO INTELIGENTE DOS BOTÕES BASEADA NO TIPO */}
+                        {!isEditing && (
+                          <div className="mt-1.5 flex flex-wrap gap-2 print:hidden">
+                            {/* Arquivos para Download */}
+                            {item.fileName && item.url && (
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <Download className="w-3.5 h-3.5"/> Baixar {item.fileName}
+                              </a>
+                            )}
+                            {/* Provas e Avaliações (Destaque Vermelho) */}
+                            {item.type === 'Exam' && item.url && (
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-1.5 rounded-md transition shadow-md w-fit">
+                                <ClipboardList className="w-4 h-4"/> Acessar Avaliação
+                              </a>
+                            )}
+                            {/* Links Simples de Video ou Site */}
+                            {item.type === 'Link' && item.url && !item.fileName && (
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <Link className="w-3.5 h-3.5"/> Abrir Link Externo
+                              </a>
+                            )}
+                            {/* Leitura de Texto Escrito */}
+                            {item.type === 'TextContent' && (
+                              <button onClick={() => setReadingItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <AlignLeft className="w-3.5 h-3.5"/> Ler Conteúdo
+                              </button>
+                            )}
+                            {/* Fórum de Dúvidas */}
+                            {item.type === 'MessageSquare' && (
+                              <button onClick={() => setActiveForumItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <MessageSquare className="w-3.5 h-3.5"/> Abrir Fórum
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -862,9 +1033,11 @@ function LmsEnterprisePortal() {
           <h3 className="font-bold text-lg text-slate-800">Relatório de Notas</h3>
           <p className="text-xs text-slate-500 print:hidden">Cálculo e consolidação do boletim.</p>
         </div>
-        <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
-          <Printer className="w-4 h-4"/> Gerar PDF Oficial
-        </button>
+        {(role === 'professor' || role === 'admin') && (
+          <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+            <Printer className="w-4 h-4"/> Gerar PDF Oficial
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
@@ -1046,9 +1219,9 @@ function LmsEnterprisePortal() {
                 const isCourseActive = activeCourseId === c.id && ['course_home', 'participants', 'grades', 'attendance'].includes(currentView);
                 return (
                 <div key={c.id}>
-                  <button onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home'); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${isCourseActive ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 text-slate-400'}`}>
+                  <button onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home'); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${isCourseActive ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 text-slate-400'}`} title={c.nome}>
                     <Book className="w-5 h-5 flex-shrink-0" />
-                    {sidebarOpen && <span className="truncate">{c.codigo}</span>}
+                    {sidebarOpen && <span className="truncate">{c.nome}</span>}
                   </button>
                   
                   {isCourseActive && sidebarOpen && (
@@ -1111,6 +1284,7 @@ function LmsEnterprisePortal() {
             
             {currentView === 'user_home' && renderUserHome()}
             {currentView === 'admin_dashboard' && renderAdminDashboard()}
+            {currentView === 'admin_students' && renderAdminStudents()}
             {currentView === 'admin_users' && renderAdminUsers()}
             {currentView === 'empty_state' && renderEmptyState()}
 
