@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check, Loader2
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check
 } from 'lucide-react';
 
 // ==========================================
@@ -49,12 +49,9 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="p-8 bg-red-50 h-screen overflow-auto">
           <h1 className="text-2xl font-bold text-red-700 mb-4">🚨 Ocorreu um Erro no Sistema</h1>
-          <p className="text-slate-700 mb-4">A tela branca foi interceptada. Por favor, tire um print do erro abaixo:</p>
+          <p className="text-slate-700 mb-4">Tire um print do erro abaixo para correção:</p>
           <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
             {this.state.error?.toString()}
-          </pre>
-          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-slate-600 overflow-x-auto mt-4 whitespace-pre-wrap">
-            {this.state.info?.componentStack}
           </pre>
         </div>
       );
@@ -71,17 +68,14 @@ const useFirestoreDB = (docName, initialValue) => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!db) {
-      setIsLoaded(true);
-      return;
-    }
+    if (!db) { setIsLoaded(true); return; }
     try {
       const unsub = onSnapshot(doc(db, 'coremu_database', docName), 
         (docSnap) => {
           if (docSnap.exists()) {
             setData(docSnap.data().value || initialValue);
           } else {
-            setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch(e => console.error("Erro silencioso:", e));
+            setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch(e => console.error(e));
             setData(initialValue);
           }
           setIsLoaded(true);
@@ -103,11 +97,8 @@ const useFirestoreDB = (docName, initialValue) => {
     const valToSave = typeof newValue === 'function' ? newValue(data) : newValue;
     setData(valToSave); 
     if (db) {
-      try {
-        await setDoc(doc(db, 'coremu_database', docName), { value: valToSave });
-      } catch (error) {
-        console.error("Falha ao gravar na nuvem:", error);
-      }
+      try { await setDoc(doc(db, 'coremu_database', docName), { value: valToSave }); } 
+      catch (error) { console.error("Falha ao gravar:", error); }
     }
   };
 
@@ -119,7 +110,7 @@ const useFirestoreDB = (docName, initialValue) => {
 // ==========================================
 function LmsEnterprisePortal() {
   
-  // 1. TODAS as chamadas de banco de dados
+  // 1. DADOS DO BANCO
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
@@ -144,22 +135,32 @@ function LmsEnterprisePortal() {
     'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }]
   });
 
-  // 2. TODOS os Hooks de estado da interface
+  // Tratamento de Segurança das Variáveis
+  const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
+  const courses = Array.isArray(dbCourses) ? dbCourses : [];
+  const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
+  const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
+
+  // 2. ESTADOS DA INTERFACE
   const [activeUserId, setActiveUserId] = useState('admin1');
+  const currentUser = systemUsers[activeUserId] || systemUsers['admin1'] || { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' };
+  const role = currentUser?.role || 'admin';
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentView, setCurrentView] = useState('admin_dashboard'); 
   const [editMode, setEditMode] = useState(false);
   const [activeCourseId, setActiveCourseId] = useState(null);
   const [expandedModules, setExpandedModules] = useState({});
 
-  // 3. TODOS os Hooks dos Modais
+  const canEdit = editMode && (role === 'admin' || role === 'professor');
+
+  // 3. ESTADOS DOS MODAIS E FORMULÁRIOS
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
   const [newFile, setNewFile] = useState(null);
 
-  // 4. TODOS os Hooks de Formulários
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('aluno');
   const [editingUserId, setEditingUserId] = useState(null);
@@ -169,19 +170,7 @@ function LmsEnterprisePortal() {
   const [newCourseProfId, setNewCourseProfId] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
 
-  // Variáveis seguras (Anti-undefined)
-  const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
-  const courses = Array.isArray(dbCourses) ? dbCourses : [];
-  const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
-  const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
-
-  const currentUser = systemUsers[activeUserId] || systemUsers['admin1'] || { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' };
-  const role = currentUser?.role || 'admin';
-  const canEdit = editMode && (role === 'admin' || role === 'professor');
-
-  // ==========================================
-  // TELA DE CARREGAMENTO (AGUARDANDO FIREBASE)
-  // ==========================================
+  // Tela de Loading enquanto o Firebase Baixa os Dados
   const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded;
   if (!isDbReady) {
     return (
@@ -193,7 +182,7 @@ function LmsEnterprisePortal() {
     );
   }
 
-  // Filtragem e Troca de Usuários (RBAC)
+  // Lógica de Visão de Cursos
   const visibleCourses = courses.filter(c => {
     if (!c) return false;
     if (role === 'admin') return true;
@@ -210,28 +199,12 @@ function LmsEnterprisePortal() {
     setEditMode(false);
     
     const newRole = systemUsers[userId]?.role || 'aluno';
-    const newVisibleCourses = courses.filter(c => {
-      if (!c) return false;
-      if (newRole === 'admin') return true;
-      if (newRole === 'professor') return c.professorId === userId;
-      if (newRole === 'aluno') {
-        const enrolled = courseStudents[c.id] || [];
-        return Array.isArray(enrolled) && enrolled.some(e => e?.studentId === userId);
-      }
-      return false;
-    });
-
     if (newRole === 'admin') {
       setCurrentView('admin_dashboard');
       setActiveCourseId(null);
     } else {
-      if (newVisibleCourses.length > 0) {
-        setActiveCourseId(newVisibleCourses[0].id);
-        setCurrentView('course_home');
-      } else {
-        setActiveCourseId(null);
-        setCurrentView('empty_state');
-      }
+      setCurrentView('user_home'); // Vai direto para o novo Dashboard!
+      setActiveCourseId(null);
     }
   };
 
@@ -273,12 +246,7 @@ function LmsEnterprisePortal() {
     setEditingUserName('');
   };
 
-  const handleCancelEditUser = () => {
-    setEditingUserId(null);
-    setEditingUserName('');
-  };
-
-  // Funções de Disciplinas
+  // Funções de Gestão de Disciplinas
   const handleCreateCourse = (e) => {
     e.preventDefault();
     if (!newCourseCode || !newCourseName || !newCourseProfId) return;
@@ -300,11 +268,11 @@ function LmsEnterprisePortal() {
     }
   };
 
-  // FUNÇÃO RESTAURADA: Atualiza nome e código da disciplina
   const updateCourseDetails = (field, value) => {
     setDbCourses(courses.map(c => c?.id === activeCourseId ? { ...c, [field]: value } : c));
   };
 
+  // Funções de Matrícula (Admin e Professor)
   const handleEnrollStudent = (e, courseId) => {
     e.preventDefault();
     if (!newStudentId) return;
@@ -314,7 +282,12 @@ function LmsEnterprisePortal() {
     setNewStudentId('');
   };
 
-  // Variáveis da Disciplina Ativa
+  const deleteStudent = (studentId) => {
+    if (window.confirm('Remover a matrícula deste residente?')) {
+      setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.filter(s => s?.studentId !== studentId) });
+    }
+  };
+
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
   const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
   const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
@@ -332,7 +305,7 @@ function LmsEnterprisePortal() {
     u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id)
   );
 
-  // Modificações de Conteúdo
+  // Funções de Edição de Módulos e Anexos
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
 
@@ -346,14 +319,6 @@ function LmsEnterprisePortal() {
   const deleteSection = (id) => { if (window.confirm('Excluir este módulo?')) updateContent(activeContent.filter(sec => sec?.id !== id)); };
   const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).map(item => item?.id === itemId ? { ...item, title: newTitle } : item) } : sec));
   const deleteItem = (sectionId, itemId) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).filter(item => item?.id !== itemId) } : sec));
-
-  const handleOpenAddItemModal = (sectionId) => {
-    setActiveSectionForNewItem(sectionId);
-    setNewItemTitle('');
-    setNewItemType('FileText');
-    setNewItemUrl('');
-    setNewFile(null);
-  };
 
   const handleConfirmAddItem = (e) => {
     e.preventDefault();
@@ -374,10 +339,11 @@ function LmsEnterprisePortal() {
         };
       }
       return sec;
-    }));
+    });
     setActiveSectionForNewItem(null); 
   };
 
+  // Funções de Notas e Presença
   const updateGrade = (studentId, field, value) => {
     setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
   };
@@ -394,11 +360,6 @@ function LmsEnterprisePortal() {
         return s;
     })});
   };
-  const deleteStudent = (studentId) => {
-    if (window.confirm('Remover a matrícula?')) {
-      setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.filter(s => s?.studentId !== studentId) });
-    }
-  };
 
   const getIconComponent = (type) => {
     switch (type) {
@@ -412,7 +373,48 @@ function LmsEnterprisePortal() {
     }
   };
 
-  // TELAS DO SISTEMA
+  // ==========================================
+  // RENDERIZAÇÃO DAS TELAS SECUNDÁRIAS
+  // ==========================================
+
+  // O NOVO DASHBOARD DO PROFESSOR E RESIDENTE
+  const renderUserHome = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Home className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Olá, {currentUser.nome}</h2>
+          <p className="text-sm text-slate-500 mt-1">Bem-vindo ao Portal COREMU. Selecione uma disciplina abaixo para acessar a sala de aula virtual.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {visibleCourses.length === 0 ? (
+          <div className="col-span-full text-center p-12 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-slate-500">
+            <Book className="w-12 h-12 mx-auto mb-3 text-slate-300"/>
+            <p className="font-bold text-lg text-slate-700">Nenhuma disciplina vinculada</p>
+            <p className="text-sm mt-1">Você ainda não possui turmas ou matriculas no semestre atual.</p>
+          </div>
+        ) : (
+          visibleCourses.map(c => {
+            if(!c) return null;
+            return (
+            <div key={c.id} onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home');}} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition cursor-pointer flex flex-col justify-between h-full group">
+              <div>
+                <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
+                <h3 className="font-bold text-slate-800 mt-3 group-hover:text-teal-700 transition leading-tight">{c.nome}</h3>
+                <p className="text-xs text-slate-500 mt-2">Professor Titular: {systemUsers[c.professorId]?.nome || 'Não definido'}</p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-teal-700 text-sm font-bold">
+                Acessar Sala <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
+              </div>
+            </div>
+          )})
+        )}
+      </div>
+    </div>
+  );
+
   const renderAdminUsers = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
@@ -465,13 +467,7 @@ function LmsEnterprisePortal() {
                           {u.avatar}
                         </div>
                         {editingUserId === u.id ? (
-                          <input 
-                            type="text" 
-                            value={editingUserName} 
-                            onChange={e => setEditingUserName(e.target.value)} 
-                            className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs"
-                            autoFocus
-                          />
+                          <input type="text" value={editingUserName} onChange={e => setEditingUserName(e.target.value)} className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs" autoFocus />
                         ) : (
                           <span>{u.nome}</span>
                         )}
@@ -632,20 +628,6 @@ function LmsEnterprisePortal() {
             )}
           </tbody>
         </table>
-      </div>
-    </div>
-  );
-
-  const renderEmptyState = () => (
-    <div className="flex-1 flex items-center justify-center h-[60vh] animate-fade-in">
-      <div className="text-center p-12 max-w-sm">
-        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Shield className="w-10 h-10 text-slate-300"/>
-        </div>
-        <h2 className="text-2xl font-black text-slate-700">Acesso Restrito</h2>
-        <p className="text-slate-500 mt-2 text-sm leading-relaxed">
-          Você ainda não possui disciplinas ativas ou não foi matriculado em nenhuma turma no semestre atual.
-        </p>
       </div>
     </div>
   );
@@ -929,8 +911,12 @@ function LmsEnterprisePortal() {
               </>
             )}
 
+            {/* BOTÃO PÁGINA INICIAL COM O ONCLICK ATIVADO E DIRECIONANDO PARA O DASHBOARD */}
             {(role === 'professor' || role === 'aluno') && (
-              <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-sm transition-colors text-slate-400">
+              <button 
+                onClick={() => {setCurrentView('user_home'); setActiveCourseId(null); setEditMode(false);}} 
+                className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-bold transition-colors ${currentView === 'user_home' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}
+              >
                 <Home className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && <span>Página Inicial</span>}
               </button>
@@ -1009,6 +995,7 @@ function LmsEnterprisePortal() {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#f8f9fa]">
           <div className="max-w-5xl mx-auto">
             
+            {currentView === 'user_home' && renderUserHome()}
             {currentView === 'admin_dashboard' && renderAdminDashboard()}
             {currentView === 'admin_users' && renderAdminUsers()}
             {currentView === 'empty_state' && renderEmptyState()}
@@ -1033,8 +1020,7 @@ function LmsEnterprisePortal() {
                     )}
                   </div>
                   
-                  {/* ESSE ERA O BOTÃO QUE ESTAVA ESCONDIDO NO ÚLTIMO CÓDIGO! */}
-                  {(role === 'professor' || role === 'admin') && (
+                  {canEdit && (
                     <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm shrink-0">
                       <span className="text-xs font-bold text-slate-600 px-2 hidden sm:inline">Modo de Edição</span>
                       <button onClick={() => setEditMode(!editMode)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${editMode ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
