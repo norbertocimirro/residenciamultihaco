@@ -4,7 +4,7 @@ import {
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check
 } from 'lucide-react';
 
 export default function LmsEnterprisePortal() {
@@ -27,9 +27,9 @@ export default function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // 1. TABELA DE USUÁRIOS (AGORA É DINÂMICA)
+  // 1. TABELA DE USUÁRIOS
   // ==========================================
-  const [systemUsers, setSystemUsers] = useLocalStorage('lms_v6_users', {
+  const [systemUsers, setSystemUsers] = useLocalStorage('lms_v7_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
     'prof2': { id: 'prof2', nome: 'Dra. Renata Gonçalves', role: 'professor', avatar: 'RG' },
@@ -38,7 +38,6 @@ export default function LmsEnterprisePortal() {
   });
 
   const [activeUserId, setActiveUserId] = useState('admin1');
-  // Se o usuário ativo foi deletado (failsafe), volta pro admin
   const currentUser = systemUsers[activeUserId] || systemUsers['admin1'];
   const role = currentUser.role;
 
@@ -55,7 +54,7 @@ export default function LmsEnterprisePortal() {
   // ==========================================
   // 2. TABELAS DE CURSOS, CONTEÚDOS E MATRÍCULAS
   // ==========================================
-  const [courses, setCourses] = useLocalStorage('lms_v6_courses', [
+  const [courses, setCourses] = useLocalStorage('lms_v7_courses', [
     { id: 'c1', codigo: '001/003/07A', nome: 'Enfermagem Forense e Saúde da Família', professorId: 'prof1' }
   ]);
 
@@ -66,9 +65,9 @@ export default function LmsEnterprisePortal() {
     }
   ];
 
-  const [courseContents, setCourseContents] = useLocalStorage('lms_v6_contents', { 'c1': defaultModules });
+  const [courseContents, setCourseContents] = useLocalStorage('lms_v7_contents', { 'c1': defaultModules });
 
-  const [courseStudents, setCourseStudents] = useLocalStorage('lms_v6_students', {
+  const [courseStudents, setCourseStudents] = useLocalStorage('lms_v7_students', {
     'c1': [
       { studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }
     ]
@@ -125,10 +124,14 @@ export default function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // FUNÇÕES: GESTÃO DE USUÁRIOS (NOVO)
+  // FUNÇÕES: GESTÃO DE USUÁRIOS
   // ==========================================
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('aluno');
+
+  // Estados para Edição Dinâmica do Usuário
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingUserName, setEditingUserName] = useState('');
 
   const handleCreateUser = (e) => {
     e.preventDefault();
@@ -151,6 +154,29 @@ export default function LmsEnterprisePortal() {
       delete updatedUsers[id];
       setSystemUsers(updatedUsers);
     }
+  };
+
+  const handleStartEditUser = (user) => {
+    setEditingUserId(user.id);
+    setEditingUserName(user.nome);
+  };
+
+  const handleSaveEditedUser = (id) => {
+    if (!editingUserName.trim()) {
+      alert("O nome do usuário não pode ficar em branco.");
+      return;
+    }
+    const updatedUsers = { ...systemUsers };
+    updatedUsers[id].nome = editingUserName;
+    updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase(); // Atualiza as iniciais
+    setSystemUsers(updatedUsers);
+    setEditingUserId(null);
+    setEditingUserName('');
+  };
+
+  const handleCancelEditUser = () => {
+    setEditingUserId(null);
+    setEditingUserName('');
   };
 
   // ==========================================
@@ -231,7 +257,7 @@ export default function LmsEnterprisePortal() {
     setNewItemTitle('');
     setNewItemType('FileText');
     setNewItemUrl('');
-    setNewFile(null); // Limpa o anexo anterior
+    setNewFile(null);
   };
 
   const handleConfirmAddItem = (e) => {
@@ -254,7 +280,7 @@ export default function LmsEnterprisePortal() {
             type: newItemType, 
             color: color,
             url: newItemUrl || null,
-            fileName: newFile ? newFile.name : null // Salva o nome real do anexo subido do PC
+            fileName: newFile ? newFile.name : null 
           }]
         };
       }
@@ -310,7 +336,7 @@ export default function LmsEnterprisePortal() {
         <div className="p-3 bg-purple-50 text-purple-700 rounded-xl"><Users className="w-8 h-8"/></div>
         <div>
           <h2 className="text-xl font-black text-slate-800">Gestão de Usuários</h2>
-          <p className="text-sm text-slate-500 mt-1">Cadastre novos residentes e preceptores no sistema.</p>
+          <p className="text-sm text-slate-500 mt-1">Cadastre, edite ou remova residentes e preceptores do sistema.</p>
         </div>
       </div>
 
@@ -344,24 +370,48 @@ export default function LmsEnterprisePortal() {
                 <tr>
                   <th className="p-3">Nome</th>
                   <th className="p-3 text-center">Perfil</th>
-                  <th className="p-3 text-right">Ação</th>
+                  <th className="p-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {Object.values(systemUsers).map(u => (
                   <tr key={u.id} className="hover:bg-slate-50">
-                    <td className="p-3 font-bold text-slate-800 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold">{u.avatar}</div>
-                      {u.nome}
+                    <td className="p-3 font-bold text-slate-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                          {u.avatar}
+                        </div>
+                        {editingUserId === u.id ? (
+                          <input 
+                            type="text" 
+                            value={editingUserName} 
+                            onChange={e => setEditingUserName(e.target.value)} 
+                            className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs"
+                            autoFocus
+                          />
+                        ) : (
+                          <span>{u.nome}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3 text-center">
                       <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${u.role === 'admin' ? 'bg-slate-800 text-white' : u.role === 'professor' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
                         {u.role}
                       </span>
                     </td>
-                    <td className="p-3 text-right">
-                      {u.id !== 'admin1' && (
-                        <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4 inline"/></button>
+                    <td className="p-3 text-right whitespace-nowrap">
+                      {editingUserId === u.id ? (
+                        <>
+                          <button onClick={() => handleSaveEditedUser(u.id)} className="text-emerald-600 hover:text-emerald-800 p-2" title="Salvar"><Check className="w-4 h-4 inline"/></button>
+                          <button onClick={handleCancelEditUser} className="text-slate-400 hover:text-slate-600 p-2" title="Cancelar"><X className="w-4 h-4 inline"/></button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleStartEditUser(u)} className="text-slate-400 hover:text-purple-600 p-2" title="Editar Nome"><Edit2 className="w-4 h-4 inline"/></button>
+                          {u.id !== 'admin1' && (
+                            <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700 p-2" title="Excluir"><Trash2 className="w-4 h-4 inline"/></button>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>
@@ -615,7 +665,6 @@ export default function LmsEnterprisePortal() {
                           <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
                         )}
                         
-                        {/* Exibe o nome do arquivo anexado */}
                         {item.fileName && (
                           <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 mt-1 bg-slate-100 w-fit px-2 py-0.5 rounded border border-slate-200">
                             <Paperclip className="w-3 h-3"/> {item.fileName}
