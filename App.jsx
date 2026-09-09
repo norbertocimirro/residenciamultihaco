@@ -1,472 +1,454 @@
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
-
+import React, { useState } from 'react';
 import { 
-  BookOpen, Calendar, Users, MessageSquare, Award, ShieldAlert, User, 
-  GraduationCap, FolderPlus, Bell, Lock, LogOut, CloudLightning, Activity, 
-  TrendingUp, Target, UploadCloud, CheckCircle, Clock, AlertTriangle, ChevronRight,
-  LayoutDashboard, ClipboardList, FileText
+  Menu, Bell, Search, Home, Book, Calendar, Users, BarChart, Settings, 
+  ChevronDown, ChevronRight, Edit2, Plus, MoreVertical, FileText, 
+  MessageSquare, FileBox, CheckSquare, Upload, Download, LogOut,
+  User, Shield, ToggleLeft, ToggleRight, Layout, GripVertical, AlertCircle
 } from 'lucide-react';
 
-// ==========================================
-// ⚠️ INSIRA AS SUAS CREDENCIAIS DO FIREBASE AQUI:
-// ==========================================
-const firebaseConfig = {
-  apiKey: "AIzaSyAwRjc9QUmF4quqYOvt-Z187Mlv5rQnHXE",
-  authDomain: "residenciamultihaco.firebaseapp.com",
-  projectId: "residenciamultihaco",
-  storageBucket: "residenciamultihaco.firebasestorage.app",
-  messagingSenderId: "1089100227489",
-  appId: "1:1089100227489:web:3b0102e76b25f2c9e8a1e0"
-};
+export default function LmsEnterprisePortal() {
+  // --- AUTENTICAÇÃO E PERFIL ---
+  const [role, setRole] = useState('professor'); // 'admin', 'professor', 'aluno'
+  const [editMode, setEditMode] = useState(false); // Famoso "Modo de Edição" do Moodle
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentView, setCurrentView] = useState('course_home'); // course_home, grades, attendance, participants
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+  // --- CONTROLE DE COLAPSÁVEIS (MÓDULOS) ---
+  const [expandedModules, setExpandedModules] = useState({
+    boas_vindas: true,
+    interacoes: true,
+    materiais: true,
+    atividades: true
+  });
 
-export default function WorldClassResidencyPlatform() {
-  const [user, setUser] = useState(null);
-  const [userRole, setUserRole] = useState('residente_aluno');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const toggleModule = (mod) => setExpandedModules(prev => ({ ...prev, [mod]: !prev[mod] }));
 
-  const [ciclos, setCiclos] = useState([]);
-  const [matrizDisciplinas, setMatrizDisciplinas] = useState([]);
-  const [historicoNotas, setHistoricoNotas] = useState([]);
-
-  const [selectedCiclo, setSelectedCiclo] = useState('2026_1');
-  const [selectedDisciplina, setSelectedDisciplina] = useState('');
-  const [activeTab, setActiveTab] = useState('dashboard');
-
-  const [newCicloNome, setNewCicloNome] = useState('');
-  const [newDiscCodigo, setNewDiscCodigo] = useState('');
-  const [newDiscTitulo, setNewDiscTitulo] = useState('');
-  const [newDiscEmenta, setNewDiscEmenta] = useState('');
-
-  // 1. ESCUTA DE SESSÃO DO USUÁRIO
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        if (currentUser.email.startsWith('gestor')) setUserRole('gestor_coremu');
-        else if (currentUser.email.startsWith('preceptor')) setUserRole('preceptor_docente');
-        else setUserRole('residente_aluno');
-      } else {
-        setUser(null);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 2. SINCRONIZAÇÃO EM TEMPO REAL FIRESTORE
-  useEffect(() => {
-    if (!user) return;
-    const unsubCiclos = onSnapshot(collection(db, "ciclos"), (snapshot) => {
-      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCiclos(lista.length ? lista : [{ id: '2026_1', nome: 'Ciclo Letivo 2026/1', status: 'ativo' }]);
-    });
-    const unsubMatriz = onSnapshot(collection(db, "disciplinas"), (snapshot) => {
-      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setMatrizDisciplinas(lista);
-      if (lista.length > 0 && !selectedDisciplina) setSelectedDisciplina(lista[0].id);
-    });
-    const unsubNotas = onSnapshot(collection(db, "historico_notas"), (snapshot) => {
-      setHistoricoNotas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => { unsubCiclos(); unsubMatriz(); unsubNotas(); };
-  }, [user]);
-
-  // LOGIN SYSTEM
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoginError('');
-    setLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      if (email.startsWith('gestor')) setActiveTab('gestao-ciclos');
-      else setActiveTab('dashboard');
-    } catch (err) {
-      setLoginError('Credenciais inválidas. Verifique seu e-mail e senha.');
-    } finally {
-      setLoading(false);
-    }
+  // --- DADOS MOCKADOS (ESTRUTURA RELACIONAL) ---
+  const currentUser = {
+    nome: role === 'aluno' ? 'Ana Silva' : (role === 'professor' ? 'Dra. Renata Gonçalves' : 'Gestão COREMU'),
+    avatar: role === 'aluno' ? 'AS' : (role === 'professor' ? 'RG' : 'GC'),
   };
 
-  const handleLogout = () => signOut(auth);
-
-  // OPERAÇÕES DO BANCO
-  const handleCriarCiclo = async (e) => {
-    e.preventDefault();
-    if (!newCicloNome) return;
-    await setDoc(doc(db, "ciclos", 'c_' + Date.now()), { nome: newCicloNome, status: 'ativo' });
-    setNewCicloNome('');
+  const course = {
+    codigo: '001/003/07A',
+    nome: 'Enfermagem Forense e Saúde da Família - 2026/1',
+    progresso: 45
   };
 
-  const handleAlternarStatusCiclo = async (id, novoStatus) => {
-    await updateDoc(doc(db, "ciclos", id), { status: novoStatus });
-  };
+  const students = [
+    { id: 1, nome: "ALVES DE CASTRO, Mariana", ra: "2026001", status: "Ativo", ga: 8.6, gb: 7.4, gc: 9.8, faltas: [false, false, false] },
+    { id: 2, nome: "BARCELOS DE OLIVEIRA, João", ra: "2026002", status: "Risco", ga: 2.9, gb: 5.8, gc: 0, faltas: [true, true, true] },
+    { id: 3, nome: "BASTOS MARQUES, Carlos", ra: "2026003", status: "Ativo", ga: 7.7, gb: 7.1, gc: 8.3, faltas: [false, false, true] },
+    { id: 4, nome: "CIMIRRO, Norberto de Sousa", ra: "2026004", status: "Ativo", ga: 9.2, gb: 8.5, gc: 9.0, faltas: [false, false, false] },
+  ];
 
-  const handleCriarDisciplina = async (e) => {
-    e.preventDefault();
-    if (!newDiscCodigo || !newDiscTitulo) return;
-    await setDoc(doc(db, "disciplinas", 'm_' + Date.now()), { codigo: newDiscCodigo, titulo: newDiscTitulo, ementa: newDiscEmenta });
-    setNewDiscCodigo(''); setNewDiscTitulo(''); setNewDiscEmenta('');
-  };
+  // ==========================================
+  // COMPONENTES REUTILIZÁVEIS DA INTERFACE
+  // ==========================================
 
-  const handlePreceptorNota = async (id, campo, valor) => {
-    const cicloAtivo = ciclos.find(c => c.id === selectedCiclo);
-    if (cicloAtivo?.status === 'arquivado') return alert("Ciclo arquivado. Edição bloqueada.");
-    await updateDoc(doc(db, "historico_notas", id), { [campo]: valor === "" ? "" : parseFloat(valor) || 0 });
-  };
+  const Breadcrumbs = () => (
+    <div className="flex items-center text-xs text-slate-500 mb-4 bg-white p-3 rounded-md border border-slate-200">
+      <span className="hover:text-slate-800 cursor-pointer">Painel</span>
+      <ChevronRight className="w-3 h-3 mx-2" />
+      <span className="hover:text-slate-800 cursor-pointer">Minhas Disciplinas</span>
+      <ChevronRight className="w-3 h-3 mx-2" />
+      <span className="font-bold text-teal-700">{course.codigo}</span>
+      <ChevronRight className="w-3 h-3 mx-2" />
+      <span className="text-slate-700">{
+        currentView === 'course_home' ? 'Conteúdo' : 
+        currentView === 'grades' ? 'Relatório de Notas' : 
+        currentView === 'attendance' ? 'Diário de Frequência' : 'Participantes'
+      }</span>
+    </div>
+  );
 
-  const handlePreceptorFeedback = async (id, parecer) => {
-    await updateDoc(doc(db, "historico_notas", id), { parecer });
-  };
-
-  // VARIÁVEIS DERIVADAS PARA UI
-  const cicloAtivoObj = ciclos.find(c => c.id === selectedCiclo);
-  const disciplinaAtivaObj = matrizDisciplinas.find(m => m.id === selectedDisciplina);
-  const notasFiltradas = historicoNotas.filter(h => h.cicloId === selectedCiclo && h.disciplinaId === selectedDisciplina);
-  const meuBoletimAluno = historicoNotas.filter(h => h.alunoEmail === user?.email && h.cicloId === selectedCiclo);
-
-  // CÁLCULOS ANALÍTICOS DO ALUNO
-  const totalNotas = meuBoletimAluno.reduce((acc, curr) => acc + (((curr.ga || 0) + (curr.gb || 0)) / 2), 0);
-  const mediaGeralAluno = meuBoletimAluno.length ? (totalNotas / meuBoletimAluno.length).toFixed(1) : 0;
-  const totalFaltasAluno = meuBoletimAluno.reduce((acc, curr) => acc + (curr.faltas || 0), 0);
-  const percentualAssiduidade = Math.max(0, 100 - (totalFaltasAluno * 1.5)).toFixed(1);
-
-  // COMPONENTE: TELA DE LOGIN PREMIUM
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans relative overflow-hidden">
-        {/* Elementos Decorativos de Fundo */}
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-teal-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-
-        <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl max-w-sm w-full space-y-6 border border-white/50 relative z-10">
-          <div className="text-center space-y-2">
-            <div className="bg-gradient-to-br from-teal-700 to-teal-900 text-white w-14 h-14 rounded-2xl font-black text-sm flex items-center justify-center mx-auto shadow-lg shadow-teal-900/20">
-              HACO
-            </div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Portal COREMU</h2>
-            <p className="text-xs text-slate-500 font-medium px-4">Subdivisão de Saúde Operacional</p>
+  const SectionBlock = ({ id, title, icon: Icon, children, bgColor = "bg-slate-100/50", borderColor = "border-slate-200" }) => (
+    <div className={`mb-6 rounded-lg border ${borderColor} overflow-hidden shadow-sm bg-white`}>
+      <div 
+        className={`flex items-center justify-between p-3 cursor-pointer ${bgColor} border-b ${borderColor} hover:bg-slate-100 transition-colors`}
+        onClick={() => toggleModule(id)}
+      >
+        <div className="flex items-center gap-3">
+          {expandedModules[id] ? <ChevronDown className="w-5 h-5 text-slate-500"/> : <ChevronRight className="w-5 h-5 text-slate-500"/>}
+          <div className="flex items-center gap-2">
+            <Icon className="w-5 h-5 text-slate-700" />
+            <h3 className="text-base font-bold text-slate-800">{title}</h3>
+            {editMode && <Edit2 className="w-3.5 h-3.5 text-slate-400 hover:text-teal-600 ml-2" />}
           </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Identificação</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail institucional" className="w-full pl-10 pr-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-600/50 focus:border-teal-600 outline-none transition-all" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full pl-10 pr-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-600/50 focus:border-teal-600 outline-none transition-all" />
-              </div>
-            </div>
-            {loginError && <div className="text-red-600 text-[11px] bg-red-50 p-3 rounded-lg font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4"/>{loginError}</div>}
-            <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white py-3.5 rounded-xl text-sm font-bold hover:bg-teal-800 transition-all shadow-lg shadow-slate-900/20 flex justify-center items-center gap-2">
-              {loading ? <span className="animate-pulse">Conectando...</span> : <>Acessar Plataforma <ChevronRight className="w-4 h-4"/></>}
-            </button>
-          </form>
+        </div>
+        <div className="flex items-center gap-2">
+          {editMode && <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider hidden sm:block">Ocultar / Editar</div>}
+          <MoreVertical className="w-5 h-5 text-slate-400 hover:text-slate-700" />
         </div>
       </div>
-    );
-  }
+      {expandedModules[id] && (
+        <div className="p-0">
+          {children}
+          {editMode && (
+            <div className="p-3 border-t border-dashed border-slate-300 bg-slate-50 flex justify-end">
+              <button className="flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800">
+                <Plus className="w-4 h-4"/> Adicionar uma atividade ou recurso
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const ResourceItem = ({ icon: Icon, title, desc, typeIconColor = "text-blue-600" }) => (
+    <div className="flex items-start justify-between p-4 border-b border-slate-100 hover:bg-slate-50 group">
+      <div className="flex items-start gap-3">
+        {editMode && <GripVertical className="w-4 h-4 text-slate-300 cursor-move mt-0.5 opacity-0 group-hover:opacity-100" />}
+        <Icon className={`w-5 h-5 ${typeIconColor} flex-shrink-0 mt-0.5`} />
+        <div>
+          <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+            {title}
+            {editMode && <Edit2 className="w-3 h-3 text-slate-400 hover:text-teal-600 cursor-pointer" />}
+          </h4>
+          {desc && <div className="text-xs text-slate-600 mt-1 leading-relaxed">{desc}</div>}
+        </div>
+      </div>
+      {editMode && <span className="text-slate-400 hover:text-slate-800 cursor-pointer">Editar ▾</span>}
+    </div>
+  );
 
   // ==========================================
-  // DASHBOARD PRINCIPAL DA APLICAÇÃO
+  // RENDERIZAÇÃO DAS VISÕES (VIEWS)
   // ==========================================
+
+  const renderCourseHome = () => (
+    <div className="animate-fade-in">
+      {editMode && (
+        <div className="mb-4 border border-dashed border-slate-300 rounded-lg p-3 text-center bg-slate-50/50 hover:bg-slate-100 cursor-pointer transition text-slate-500 font-bold text-xs flex items-center justify-center gap-2">
+          <Plus className="w-4 h-4"/> Adicionar novo tópico
+        </div>
+      )}
+
+      {/* BLOCO 1: MURAL DE BOAS VINDAS */}
+      <SectionBlock id="boas_vindas" title="Mural de Boas-vindas" icon={Layout} bgColor="bg-blue-50/50" borderColor="border-blue-100">
+        <div className="p-6 text-sm text-slate-700 leading-relaxed space-y-4 font-medium">
+          <p>Queridos(as), estudantes.</p>
+          <p>Sejam muito bem-vindos ao primeiro semestre do ano letivo (2026/1). É uma alegria iniciarmos juntos a disciplina dedicada à compreensão da atuação do enfermeiro em situações de violência, trauma e morte — contextos que exigem preparo técnico, sensibilidade no cuidado e responsabilidade ética e legal.</p>
+          <p>Que seja um semestre de aprendizado consistente, reflexão madura e crescimento profissional. Estarei ao lado de vocês nessa construção.</p>
+          <p className="pt-2">Com estima,<br/><strong>Prof.ª Dra. Renata Casagrande Gonçalves</strong></p>
+        </div>
+        <div className="border-t border-slate-100">
+          <ResourceItem icon={FileText} title="Plano de Ensino da disciplina" typeIconColor="text-red-500" />
+          <ResourceItem icon={FileText} title="Cronograma do semestre" typeIconColor="text-red-500" />
+          <ResourceItem icon={FileText} title="Contrato Pedagógico" typeIconColor="text-red-500" />
+        </div>
+      </SectionBlock>
+
+      {/* BLOCO 2: INTERAÇÕES */}
+      <SectionBlock id="interacoes" title="Interações" icon={MessageSquare} bgColor="bg-purple-50/50" borderColor="border-purple-100">
+        <ResourceItem icon={MessageSquare} title="Fórum Geral de Notícias e Avisos" typeIconColor="text-purple-600" desc={
+          <div className="bg-slate-800 text-white p-3 rounded mt-2 border-l-4 border-purple-500">
+            <h5 className="font-bold mb-1">Visita Técnica</h5>
+            <p className="text-[11px] text-slate-300">A disciplina aborda os fundamentos teóricos... Visita técnica ao Departamento Médico-Legal (DML).</p>
+            <div className="mt-2 text-[10px] bg-slate-700 inline-block px-2 py-1 rounded">📅 Data: 09/06/2026</div>
+          </div>
+        }/>
+        <ResourceItem icon={MessageSquare} title="Fórum de Dúvidas" typeIconColor="text-amber-500" />
+      </SectionBlock>
+
+      {/* BLOCO 3: MATERIAIS DIDÁTICOS */}
+      <SectionBlock id="materiais" title="Materiais didáticos" icon={Book} bgColor="bg-emerald-50/50" borderColor="border-emerald-100">
+        <ResourceItem icon={FileBox} title="Materiais Complementares (Pasta)" typeIconColor="text-slate-400" />
+        <ResourceItem icon={FileText} title="Aula 2 - 03/03/26" typeIconColor="text-red-500" />
+        <ResourceItem icon={FileText} title="Aula 3 - World Café_debate estruturado e rotativo 10/3/26" typeIconColor="text-red-500" desc={
+          <div className="space-y-2 mt-1">
+            <p>Prezados(as), alunos(as).</p>
+            <p>Encaminho, em anexo, o riquíssimo material elaborado pelo Dr. Pietro, que servirá de base para nossa roda de conversa, a ser realizada no dia <strong>10/03, às 7h30</strong>.</p>
+            <p>Após a leitura minuciosa, peço que cada aluno elabore uma pergunta pertinente ao tema.</p>
+          </div>
+        }/>
+      </SectionBlock>
+
+      {/* BLOCO 4: ATIVIDADES AVALIATIVAS */}
+      <SectionBlock id="atividades" title="Atividades Avaliativas" icon={CheckSquare} bgColor="bg-rose-50/50" borderColor="border-rose-100">
+        <ResourceItem icon={Upload} title="Avaliação GA" typeIconColor="text-rose-500" />
+        <ResourceItem icon={Upload} title="Avaliação GB" typeIconColor="text-rose-500" />
+        <ResourceItem icon={Upload} title="GA 1 - Atividade: 'Debate estruturado e rotativo'" typeIconColor="text-rose-500" desc={
+          <div className="bg-slate-50 p-3 rounded border border-slate-200 mt-2 text-xs">
+            <p className="font-bold text-rose-800 mb-1 flex items-center gap-1">📌 ATIVIDADE - Debate estruturado (Individual)</p>
+            <p><strong>Tema principal:</strong> Fundamentos da Enfermagem Forense e Interface com o Sistema de Justiça</p>
+            <p className="mt-1"><strong>Subtema:</strong> Noções integradas de Direito Penal aplicadas à Enfermagem Forense.</p>
+            <p className="mt-2 font-bold">Data de Entrega: 10/03/2026</p>
+          </div>
+        }/>
+      </SectionBlock>
+    </div>
+  );
+
+  const renderGradebook = () => (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in">
+      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <div>
+          <h3 className="font-bold text-lg text-slate-800">Relatório de Notas (Gradebook)</h3>
+          <p className="text-xs text-slate-500">Planilha geral de avaliações do semestre letivo.</p>
+        </div>
+        <button className="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2 hover:bg-slate-300">
+          <Download className="w-4 h-4"/> Exportar CSV
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-800 text-white border-b border-slate-300">
+              <th className="p-3 font-semibold w-1/4">Estudante</th>
+              <th className="p-3 font-semibold border-x border-slate-600 text-center">Status</th>
+              <th className="p-3 font-semibold border-x border-slate-600 text-center">Nota GA</th>
+              <th className="p-3 font-semibold border-x border-slate-600 text-center">Nota GB</th>
+              <th className="p-3 font-semibold border-x border-slate-600 text-center">Nota GC</th>
+              <th className="p-3 font-semibold bg-teal-800 text-center">TotalNotas</th>
+              <th className="p-3 font-semibold">Comentário / Feedback</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {students.map((aluno, idx) => {
+              const total = (((aluno.ga || 0) + (aluno.gb || 0) + (aluno.gc || 0))).toFixed(2);
+              return (
+                <tr key={aluno.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                  <td className="p-3 font-bold text-slate-700 border-r border-slate-200">{aluno.nome}</td>
+                  <td className="p-3 border-r border-slate-200 text-center">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${aluno.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                      {aluno.status === 'Ativo' ? 'Aprovado' : 'Reprovado'}
+                    </span>
+                  </td>
+                  <td className="p-3 border-r border-slate-200 text-center">
+                    {editMode ? <input type="text" defaultValue={aluno.ga} className="w-12 text-center border p-1 rounded" /> : aluno.ga}
+                  </td>
+                  <td className="p-3 border-r border-slate-200 text-center">
+                    {editMode ? <input type="text" defaultValue={aluno.gb} className="w-12 text-center border p-1 rounded" /> : aluno.gb}
+                  </td>
+                  <td className="p-3 border-r border-slate-200 text-center">
+                    {editMode ? <input type="text" defaultValue={aluno.gc} className="w-12 text-center border p-1 rounded" /> : aluno.gc}
+                  </td>
+                  <td className="p-3 border-r border-slate-200 text-center font-black bg-slate-100">{total}</td>
+                  <td className="p-3 text-slate-500 italic">
+                    {editMode ? <input type="text" placeholder="Adicionar feedback..." className="w-full border p-1 rounded" /> : "Desempenho satisfatório."}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderAttendance = () => (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in">
+      <div className="p-4 border-b border-slate-200 bg-slate-50">
+        <h3 className="font-bold text-lg text-slate-800">Diário de Classe Eletrônico</h3>
+        <p className="text-xs text-slate-500">Mapeamento de Presenças (✔) e Faltas (X). Data Limite: 18/07/2026</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-200 text-slate-700">
+              <th rowSpan="2" className="p-2 border border-slate-300 font-bold w-1/3">Estudante</th>
+              <th rowSpan="2" className="p-2 border border-slate-300 font-bold text-center">Situação</th>
+              <th rowSpan="2" className="p-2 border border-slate-300 font-bold text-center">Faltas</th>
+              <th colSpan="3" className="p-2 border border-slate-300 font-bold text-center bg-slate-300">07/07</th>
+            </tr>
+            <tr className="bg-slate-100 text-slate-700 text-center text-[10px]">
+              <th className="p-1 border border-slate-300">07:30 - 08:20</th>
+              <th className="p-1 border border-slate-300">08:20 - 09:10</th>
+              <th className="p-1 border border-slate-300">09:10 - 10:00</th>
+            </tr>
+          </thead>
+          <tbody>
+            {students.map((aluno) => (
+              <tr key={aluno.id} className="hover:bg-slate-50">
+                <td className="p-2 border border-slate-200 font-medium text-slate-800">{aluno.nome}</td>
+                <td className="p-2 border border-slate-200 text-center">{aluno.status === 'Ativo' ? 'Aprovado' : 'Reprovado por Faltas'}</td>
+                <td className="p-2 border border-slate-200 text-center font-bold">{aluno.faltas.filter(f => f).length * 2}</td>
+                {aluno.faltas.map((falta, i) => (
+                  <td key={i} className={`p-2 border border-slate-200 text-center ${falta ? 'bg-slate-800' : 'bg-emerald-700'}`}>
+                    <input type="checkbox" checked={!falta} readOnly={!editMode} className="w-4 h-4 rounded text-white" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  // ==========================================
+  // ESTRUTURA PRINCIPAL (SHELL DO LMS)
+  // ==========================================
+
   return (
-    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-800 flex flex-col">
-      {/* HEADER PREMIUM */}
-      <header className="bg-white border-b border-slate-200/60 sticky top-0 z-50 backdrop-blur-md bg-white/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-tr from-teal-800 to-teal-900 text-white w-10 h-10 rounded-xl font-black text-xs flex items-center justify-center shadow-md">
-                HACO
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-sm font-bold text-slate-900 leading-tight">Workspace Educacional</h1>
-                <p className="text-[10px] font-semibold text-teal-700 uppercase tracking-wider">COREMU Avançado</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6">
-              <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-100/50 py-1.5 px-3 rounded-full border border-slate-200">
-                <Calendar className="w-3.5 h-3.5" />
-                <select value={selectedCiclo} onChange={(e) => setSelectedCiclo(e.target.value)} className="bg-transparent focus:outline-none cursor-pointer font-bold text-slate-700">
-                  {ciclos.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
-                <div className="text-right hidden sm:block">
-                  <p className="text-xs font-bold text-slate-900">{userRole.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</p>
-                  <p className="text-[10px] text-slate-500">{user.email}</p>
-                </div>
-                <button onClick={handleLogout} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors">
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
+    <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-800 overflow-hidden">
+      
+      {/* 1. SIDEBAR (MENU LATERAL FIXO) */}
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 text-slate-300 transition-all duration-300 flex flex-col flex-shrink-0 shadow-2xl z-20`}>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
+          {sidebarOpen && <span className="font-black text-white text-lg tracking-tight">LMS<span className="text-teal-500">Portal</span></span>}
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
+            <Menu className="w-5 h-5" />
+          </button>
         </div>
-      </header>
-
-      {/* NAVEGAÇÃO DE ABAS REFINADA */}
-      <div className="bg-white border-b border-slate-200/60 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-8 overflow-x-auto no-scrollbar">
-          {userRole === 'gestor_coremu' && (
-            <>
-              <button onClick={() => setActiveTab('gestao-ciclos')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'gestao-ciclos' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Administração de Ciclos</button>
-              <button onClick={() => setActiveTab('gestao-matriz')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'gestao-matriz' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Matriz Curricular</button>
-            </>
-          )}
-          {(userRole === 'preceptor_docente' || userRole === 'residente_aluno') && (
-            <>
-              <button onClick={() => setActiveTab('dashboard')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'dashboard' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                <LayoutDashboard className="w-4 h-4"/> Overview
-              </button>
-              <button onClick={() => setActiveTab('mural-modulo')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'mural-modulo' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                <BookOpen className="w-4 h-4"/> Sala de Aula
-              </button>
-              {userRole === 'preceptor_docente' && (
-                <button onClick={() => setActiveTab('preceptor-notas')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'preceptor-notas' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                  <ClipboardList className="w-4 h-4"/> Lançamentos e Avaliações
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:px-6 lg:px-8 py-8 space-y-6">
         
-        {/* BANNER DE AVISO: CICLO ARQUIVADO */}
-        {cicloAtivoObj?.status === 'arquivado' && (
-          <div className="bg-amber-50/80 backdrop-blur border border-amber-200 p-4 rounded-2xl flex items-center gap-4 text-amber-900 shadow-sm">
-            <div className="bg-amber-100 p-2 rounded-full"><Lock className="w-5 h-5 text-amber-700" /></div>
-            <div>
-              <p className="font-bold text-sm">Auditoria Histórica Ativada</p>
-              <p className="text-xs text-amber-700/80 mt-0.5">As avaliações referentes ao {cicloAtivoObj.nome} foram consolidadas. Edições estão desabilitadas para garantir a integridade dos dados.</p>
-            </div>
-          </div>
-        )}
+        <div className="flex-1 overflow-y-auto py-4 no-scrollbar">
+          <nav className="space-y-1 px-2">
+            <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-sm transition-colors text-slate-400">
+              <Home className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Página Inicial</span>}
+            </button>
+            <button className="w-full flex items-center gap-3 p-3 rounded-lg bg-teal-900/40 text-teal-400 font-bold text-sm transition-colors border-l-4 border-teal-500">
+              <Layout className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Painel (Dashboard)</span>}
+            </button>
+            <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-sm transition-colors text-slate-400">
+              <Calendar className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Calendário Institucional</span>}
+            </button>
+            <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-sm transition-colors text-slate-400">
+              <FileBox className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Arquivos Privados</span>}
+            </button>
+            
+            {sidebarOpen && <div className="mt-8 mb-2 px-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Meus Cursos</div>}
+            
+            <button onClick={() => setCurrentView('course_home')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${currentView === 'course_home' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 text-slate-400'}`}>
+              <Book className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span className="truncate">{course.codigo}</span>}
+            </button>
+            <button onClick={() => setCurrentView('participants')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors pl-8 ${currentView === 'participants' ? 'text-teal-400' : 'hover:bg-slate-800 text-slate-400'}`}>
+              <Users className="w-4 h-4 flex-shrink-0" />
+              {sidebarOpen && <span>Participantes</span>}
+            </button>
+            <button onClick={() => setCurrentView('grades')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors pl-8 ${currentView === 'grades' ? 'text-teal-400' : 'hover:bg-slate-800 text-slate-400'}`}>
+              <BarChart className="w-4 h-4 flex-shrink-0" />
+              {sidebarOpen && <span>Notas</span>}
+            </button>
+            {(role === 'professor' || role === 'admin') && (
+              <button onClick={() => setCurrentView('attendance')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors pl-8 ${currentView === 'attendance' ? 'text-teal-400' : 'hover:bg-slate-800 text-slate-400'}`}>
+                <CheckSquare className="w-4 h-4 flex-shrink-0" />
+                {sidebarOpen && <span>Frequência</span>}
+              </button>
+            )}
+          </nav>
+        </div>
 
-        {/* SELECTOR GLOBAL DE COMPONENTE (Para Professor e Aluno) */}
-        {(userRole === 'preceptor_docente' || userRole === 'residente_aluno') && matrizDisciplinas.length > 0 && (
-          <div className="bg-white p-2 rounded-2xl border border-slate-200/60 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 max-w-2xl">
-            <div className="px-3 py-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Módulo Selecionado</span>
-              <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                <Target className="w-4 h-4 text-teal-600"/> {disciplinaAtivaObj?.codigo}
-              </h2>
-            </div>
-            <select value={selectedDisciplina} onChange={(e) => setSelectedDisciplina(e.target.value)} className="bg-slate-50 border border-slate-200 w-full sm:w-auto p-2.5 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-teal-500 outline-none">
-              {matrizDisciplinas.map(m => <option key={m.id} value={m.id}>{m.titulo}</option>)}
+        {/* Simulador de Acesso no final da Sidebar */}
+        {sidebarOpen && (
+          <div className="p-4 bg-slate-950 border-t border-slate-800">
+            <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Simulador de Acesso</p>
+            <select value={role} onChange={(e) => { setRole(e.target.value); setEditMode(false); }} className="w-full bg-slate-800 text-xs text-slate-300 p-2 rounded border border-slate-700 outline-none">
+              <option value="admin">Administrador (TI)</option>
+              <option value="professor">Professor / Gestor</option>
+              <option value="aluno">Aluno / Residente</option>
             </select>
           </div>
         )}
+      </aside>
 
-        {/* ========================================================================= */}
-        {/* 🚀 DASHBOARD ANALÍTICO PREMIUM DO RESIDENTE */}
-        {/* ========================================================================= */}
-        {activeTab === 'dashboard' && userRole === 'residente_aluno' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Header de Boas-Vindas */}
-            <div className="bg-gradient-to-r from-slate-900 to-teal-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
-              <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-                <div>
-                  <span className="bg-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest backdrop-blur-sm border border-white/10">Residente R1</span>
-                  <h2 className="text-3xl font-black mt-3 mb-1">Olá, {user.email.split('@')[0]}</h2>
-                  <p className="text-teal-100 text-sm max-w-md">Acompanhe seu desenvolvimento técnico e prático no {cicloAtivoObj?.nome}. Continue focado nos seus objetivos do semestre!</p>
-                </div>
-                {/* Gráfico de Progresso Circular Customizado em CSS */}
-                <div className="flex items-center gap-6 bg-black/20 p-4 rounded-2xl backdrop-blur-md border border-white/10">
-                  <div className="text-center">
-                    <p className="text-[10px] uppercase font-bold text-teal-200 tracking-wider mb-1">Assiduidade</p>
-                    <p className="text-2xl font-black text-white">{percentualAssiduidade}%</p>
-                  </div>
-                  <div className="w-px h-10 bg-white/20"></div>
-                  <div className="text-center">
-                    <p className="text-[10px] uppercase font-bold text-teal-200 tracking-wider mb-1">Média Global</p>
-                    <p className="text-2xl font-black text-emerald-400">{mediaGeralAluno}</p>
-                  </div>
-                </div>
-              </div>
+      {/* 2. ÁREA PRINCIPAL (HEADER + CONTEÚDO) */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
+        {/* HEADER SUPERIOR */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shadow-sm z-10">
+          <div className="flex items-center gap-4 flex-1">
+            <div className="hidden sm:flex items-center text-sm font-semibold text-slate-600 gap-6">
+              <span className="hover:text-teal-700 cursor-pointer border-b-2 border-teal-700 text-teal-700 py-5">Painel</span>
+              <span className="hover:text-teal-700 cursor-pointer py-5">Meus Cursos</span>
+              <span className="hover:text-teal-700 cursor-pointer py-5">Catálogo</span>
             </div>
-
-            {/* Grid de Métricas do Componente Atual */}
-            <h3 className="font-black text-lg text-slate-800 mt-8 mb-4 flex items-center gap-2"><Activity className="w-5 h-5 text-teal-600"/> Desempenho em {disciplinaAtivaObj?.codigo}</h3>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="relative hidden md:block">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+              <input type="text" placeholder="Pesquisar cursos..." className="pl-9 pr-4 py-1.5 bg-slate-100 border-transparent rounded-full text-xs focus:bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none transition-all w-48" />
+            </div>
+            <button className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+            </button>
             
-            {meuBoletimAluno.length === 0 ? (
-              <div className="bg-white p-12 rounded-3xl border border-slate-200 border-dashed text-center">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4"><Clock className="w-6 h-6 text-slate-400"/></div>
-                <p className="text-slate-500 font-medium">As avaliações para este componente ainda não foram lançadas pelo preceptor.</p>
+            <div className="h-8 w-px bg-slate-200 mx-1"></div>
+            
+            <div className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-colors">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-slate-800">{currentUser.nome}</p>
+                <p className="text-[10px] text-slate-500 uppercase">{role}</p>
               </div>
-            ) : (
-              meuBoletimAluno.map(b => (
-                <div key={b.id} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="bg-blue-50 text-blue-700 p-2 rounded-xl"><FileText className="w-5 h-5"/></div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Teórico</span>
-                    </div>
-                    <p className="text-sm font-bold text-slate-500">Grau A (GA)</p>
-                    <p className="text-4xl font-black text-slate-800 mt-1">{b.ga || '-'}</p>
-                  </div>
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="bg-amber-50 text-amber-700 p-2 rounded-xl"><Users className="w-5 h-5"/></div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Prático</span>
-                    </div>
-                    <p className="text-sm font-bold text-slate-500">Grau B (GB)</p>
-                    <p className="text-4xl font-black text-slate-800 mt-1">{b.gb || '-'}</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-6 rounded-3xl border border-teal-100 shadow-sm flex flex-col justify-center">
-                    <p className="text-xs font-bold text-teal-800 uppercase tracking-widest mb-2">Conceito Final</p>
-                    <div className="flex items-end gap-2">
-                      <p className="text-5xl font-black text-teal-900">{(((b.ga || 0) + (b.gb || 0)) / 2).toFixed(1)}</p>
-                      <p className="text-sm font-bold text-teal-600 mb-1">/ 10.0</p>
-                    </div>
-                    <div className="mt-4 w-full bg-white/60 h-2 rounded-full overflow-hidden">
-                      <div className="bg-teal-500 h-full rounded-full" style={{ width: `${(((b.ga || 0) + (b.gb || 0)) / 2) * 10}%` }}></div>
-                    </div>
-                  </div>
-                  
-                  {/* Feedback do Preceptor tipo "Chat Card" */}
-                  <div className="md:col-span-3 bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><MessageSquare className="w-4 h-4"/> Feedback Contínuo do Preceptor</h4>
-                    <div className="bg-slate-50 border border-slate-100 p-5 rounded-2xl relative">
-                      <div className="absolute -left-2 top-6 w-4 h-4 bg-slate-50 border-t border-l border-slate-100 transform -rotate-45"></div>
-                      <p className="text-sm text-slate-700 font-medium leading-relaxed italic relative z-10">
-                        "{b.parecer || 'Nenhum feedback registrado até o momento.'}"
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* DASHBOARD GESTOR (ADMINISTRATION) */}
-        {/* ========================================================================= */}
-        {activeTab === 'gestao-ciclos' && userRole === 'gestor_coremu' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm h-fit">
-              <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mb-4"><Calendar className="w-6 h-6"/></div>
-              <h3 className="font-black text-lg text-slate-800 mb-1">Abertura de Ciclo</h3>
-              <p className="text-xs text-slate-500 mb-6">Inicie um novo período letivo no sistema institucional.</p>
-              
-              <form onSubmit={handleCriarCiclo} className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Nome do Ciclo</label>
-                  <input type="text" value={newCicloNome} onChange={(e) => setNewCicloNome(e.target.value)} placeholder="Ex: Semestre Letivo 2027/1" className="w-full mt-1 border border-slate-200 text-sm p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-teal-500 outline-none transition-all" />
-                </div>
-                <button type="submit" className="w-full bg-slate-900 text-white p-3.5 rounded-xl text-sm font-bold hover:bg-teal-800 transition-all">Ativar Ciclo</button>
-              </form>
-            </div>
-
-            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
-              <h3 className="font-black text-lg text-slate-800 mb-6">Governança Histórica e Auditoria</h3>
-              <div className="grid gap-4">
-                {ciclos.map(c => (
-                  <div key={c.id} className="group border border-slate-100 p-4 rounded-2xl flex justify-between items-center hover:border-teal-200 hover:shadow-md transition-all bg-white">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-2 h-10 rounded-full ${c.status === 'ativo' ? 'bg-emerald-400' : 'bg-amber-400'}`}></div>
-                      <div>
-                        <span className="font-black text-slate-800 text-base block">{c.nome}</span>
-                        <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 block ${c.status === 'ativo' ? 'text-emerald-600' : 'text-amber-600'}`}>Status: {c.status}</span>
-                      </div>
-                    </div>
-                    {c.status === 'ativo' ? (
-                      <button onClick={() => handleAlternarStatusCiclo(c.id, 'arquivado')} className="opacity-0 group-hover:opacity-100 bg-white border border-amber-200 text-amber-700 px-4 py-2 rounded-xl font-bold text-xs hover:bg-amber-50 hover:border-amber-300 transition-all flex items-center gap-2">
-                        <Lock className="w-3.5 h-3.5"/> Congelar Notas
-                      </button>
-                    ) : (
-                      <button onClick={() => handleAlternarStatusCiclo(c.id, 'ativo')} className="opacity-0 group-hover:opacity-100 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl font-bold text-xs hover:bg-slate-50 transition-all flex items-center gap-2">
-                        <Unlock className="w-3.5 h-3.5"/> Reabrir Ciclo
-                      </button>
-                    )}
-                  </div>
-                ))}
+              <div className="w-8 h-8 rounded-full bg-teal-700 text-white flex items-center justify-center text-xs font-bold">
+                {currentUser.avatar}
               </div>
             </div>
           </div>
-        )}
+        </header>
 
-        {/* ========================================================================= */}
-        {/* PRECEPTOR: CADERNETA MODERNA */}
-        {/* ========================================================================= */}
-        {activeTab === 'preceptor-notas' && userRole === 'preceptor_docente' && (
-          <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden animate-fade-in">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        {/* CONTEÚDO SCROLLÁVEL DA PÁGINA */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="max-w-5xl mx-auto">
+            
+            {/* Título da Disciplina e Controles Globais */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
               <div>
-                <h3 className="font-black text-lg text-slate-800">Planilha de Avaliação Somativa</h3>
-                <p className="text-xs text-slate-500 font-medium">As alterações são sincronizadas automaticamente com o banco de dados e com os residentes.</p>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                  {course.nome}
+                </h1>
+                <p className="text-sm text-slate-500 mt-1 font-medium">{course.codigo} • Curso de Especialização / Residência</p>
               </div>
-              <div className="bg-teal-50 text-teal-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
-                <CheckCircle className="w-4 h-4"/> Auto-save ativado
-              </div>
+              
+              {/* BOTÃO "MODO DE EDIÇÃO" IGUAL AO MOODLE */}
+              {(role === 'professor' || role === 'admin') && (
+                <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm">
+                  <span className="text-xs font-bold text-slate-600 px-2 hidden sm:inline">Modo de edição</span>
+                  <button 
+                    onClick={() => setEditMode(!editMode)} 
+                    className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${editMode ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                  >
+                    {editMode ? <ToggleRight className="w-4 h-4 mr-1"/> : <ToggleLeft className="w-4 h-4 mr-1"/>}
+                    {editMode ? 'Ativo' : 'Inativo'}
+                  </button>
+                </div>
+              )}
             </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead className="bg-white font-bold text-slate-400 uppercase tracking-widest text-[10px] border-b border-slate-100">
-                  <tr>
-                    <th className="p-4 pl-6">Residente Avaliado</th>
-                    <th className="p-4 text-center">Teórica (GA)</th>
-                    <th className="p-4 text-center">Prática (GB)</th>
-                    <th className="p-4 text-center">Faltas Computadas</th>
-                    <th className="p-4">Parecer Qualitativo Rápido</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 font-medium text-slate-700">
-                  {notasFiltradas.length === 0 ? (
-                    <tr><td colSpan="5" className="p-8 text-center text-slate-400">Aguardando cadastro de alunos pela coordenação neste módulo.</td></tr>
-                  ) : (
-                    notasFiltradas.map(n => (
-                      <tr key={n.id} className="hover:bg-slate-50 transition-colors group">
-                        <td className="p-4 pl-6 font-bold text-slate-900 flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-black text-slate-500">{n.nome?.charAt(0)}</div>
-                          {n.nome}
-                        </td>
-                        <td className="p-4 text-center">
-                          <input type="number" step="0.1" value={n.ga} disabled={cicloAtivoObj?.status === 'arquivado'} onChange={(e) => handlePreceptorNota(n.id, 'ga', e.target.value)} className="w-16 text-center border border-slate-200 bg-white p-2 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none disabled:bg-slate-50 transition-all" />
-                        </td>
-                        <td className="p-4 text-center">
-                          <input type="number" step="0.1" value={n.gb} disabled={cicloAtivoObj?.status === 'arquivado'} onChange={(e) => handlePreceptorNota(n.id, 'gb', e.target.value)} className="w-16 text-center border border-slate-200 bg-white p-2 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none disabled:bg-slate-50 transition-all" />
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="inline-flex items-center justify-center w-12 h-10 bg-amber-50 text-amber-700 rounded-lg font-black border border-amber-100">
-                            {n.faltas || 0}
-                          </div>
-                        </td>
-                        <td className="p-4 pr-6">
-                          <input type="text" value={n.parecer || ''} disabled={cicloAtivoObj?.status === 'arquivado'} onChange={(e) => handlePreceptorFeedback(n.id, e.target.value)} placeholder="Adicionar feedback..." className="w-full text-xs border border-transparent bg-transparent hover:bg-white hover:border-slate-200 p-2 rounded-lg focus:bg-white focus:border-teal-500 outline-none transition-all" />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
-      </main>
+            <Breadcrumbs />
+
+            {/* BARRA DE PROGRESSO DO ALUNO */}
+            {role === 'aluno' && currentView === 'course_home' && (
+              <div className="bg-white p-4 rounded-lg border border-slate-200 mb-6 flex items-center justify-between shadow-sm">
+                <div className="flex-1 mr-6">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-slate-700">Progresso do Curso</span>
+                    <span className="font-bold text-teal-700">{course.progresso}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5">
+                    <div className="bg-teal-600 h-2.5 rounded-full transition-all duration-1000" style={{ width: `${course.progresso}%` }}></div>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-500 text-right">
+                  <strong>4</strong> de <strong>9</strong> atividades concluídas
+                </div>
+              </div>
+            )}
+
+            {/* RENDERIZAÇÃO CONDICIONAL DAS VIEWS */}
+            {currentView === 'course_home' && renderCourseHome()}
+            {currentView === 'grades' && renderGradebook()}
+            {currentView === 'attendance' && renderAttendance()}
+            {currentView === 'participants' && (
+              <div className="bg-white p-8 rounded-lg border border-slate-200 text-center text-slate-500">
+                <Users className="w-12 h-12 mx-auto mb-4 text-slate-300"/>
+                <h3 className="text-lg font-bold text-slate-700">Lista de Participantes</h3>
+                <p className="text-sm">Módulo em desenvolvimento. Aqui você verá todos os alunos matriculados.</p>
+              </div>
+            )}
+
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
