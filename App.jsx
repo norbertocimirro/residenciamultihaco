@@ -50,7 +50,8 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="p-8 bg-red-50 h-screen overflow-auto">
           <h1 className="text-2xl font-bold text-red-700 mb-4">🚨 Ocorreu um Erro no Sistema</h1>
-          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 whitespace-pre-wrap">{this.state.error?.toString()}</pre>
+          <p className="text-slate-700 mb-4">Tire um print do erro abaixo para correção:</p>
+          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">{this.state.error?.toString()}</pre>
         </div>
       );
     }
@@ -130,7 +131,7 @@ function LmsEnterprisePortal() {
   });
   const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', { 'c1': [] });
   
-  // Novas Tabelas: Fóruns (Tópicos e Respostas) e Provas Nativas
+  // Tabelas: Fóruns (Tópicos e Respostas) e Provas Nativas
   const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums_v2', {});
   const [dbExams, setDbExams, examsLoaded] = useFirestoreDB('tb_exams_v1', {});
 
@@ -156,7 +157,7 @@ function LmsEnterprisePortal() {
   const hasEditPermission = role === 'admin' || role === 'professor';
   const isEditing = editMode && hasEditPermission;
 
-  // 3. ESTADOS DOS MODAIS
+  // 3. ESTADOS DOS MODAIS E FORMULÁRIOS
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
@@ -174,13 +175,15 @@ function LmsEnterprisePortal() {
   const [newCourseProfId, setNewCourseProfId] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
 
-  // Estados dos Novos Módulos
-  const [readingItem, setReadingItem] = useState(null); // Text Content
-  const [activeForumItem, setActiveForumItem] = useState(null); // Forum
-  const [activeTopicId, setActiveTopicId] = useState(null); // Forum Thread
-  const [activeExamItem, setActiveExamItem] = useState(null); // Exam
+  // Estados dos Novos Módulos (Provas, Leitura e Fórum)
+  const [readingItem, setReadingItem] = useState(null); 
+  const [activeForumItem, setActiveForumItem] = useState(null); 
+  const [activeTopicId, setActiveTopicId] = useState(null); 
+  const [activeExamItem, setActiveExamItem] = useState(null); 
+  const [localQuestions, setLocalQuestions] = useState([]); // Variável blindada para evitar erros no React
 
-  const editorRef = useRef(null); // Ref para o Editor WYSIWYG
+  const editorRef = useRef(null); 
+  const chatEndRef = useRef(null); 
 
   const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded && colsLoaded && forumsLoaded && examsLoaded;
   if (!isDbReady) {
@@ -301,7 +304,7 @@ function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // CONTEÚDOS E UPLOAD
+  // CONTEÚDOS, UPLOAD E ÍCONES (CORRIGIDO)
   // ==========================================
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
@@ -352,10 +355,10 @@ function LmsEnterprisePortal() {
     }
 
     if (newItemType === 'MessageSquare') {
-      setDbForums({ ...forums, [finalItemId]: [] }); // Inicializa Fórum vazio
+      setDbForums({ ...forums, [finalItemId]: [] }); 
     }
     if (newItemType === 'NativeExam') {
-      setDbExams({ ...exams, [finalItemId]: { questions: [], submissions: {} } }); // Inicializa Prova vazia
+      setDbExams({ ...exams, [finalItemId]: { questions: [], submissions: {} } }); 
     }
 
     const textContentToSave = newItemType === 'TextContent' && editorRef.current ? editorRef.current.innerHTML : '';
@@ -380,6 +383,65 @@ function LmsEnterprisePortal() {
     if (editorRef.current) editorRef.current.focus();
   };
 
+  const getIconComponent = (type) => {
+    switch (type) {
+      case 'FileText': return FileText;
+      case 'MessageSquare': return MessageSquare;
+      case 'Folder': return Folder;
+      case 'Upload': return Upload;
+      case 'CheckCircle': return CheckCircle;
+      case 'Link': return Link;
+      case 'TextContent': return AlignLeft;
+      case 'NativeExam': return ClipboardList;
+      default: return FileText;
+    }
+  };
+
+  // ==========================================
+  // FUNÇÕES DE NOTAS E FREQUÊNCIAS
+  // ==========================================
+  const updateGrade = (studentId, field, value) => {
+    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
+  };
+  const updateFeedback = (studentId, value) => {
+    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, feedback: value } : s) });
+  };
+  const toggleAttendance = (studentId, index) => {
+    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => {
+        if (s?.studentId === studentId) {
+          const newFaltas = [...(s.faltas || [])];
+          newFaltas[index] = !newFaltas[index]; 
+          return { ...s, faltas: newFaltas };
+        }
+        return s;
+    })});
+  };
+
+  const handleAddAttendanceCol = () => {
+    const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00 às 10:00):");
+    if (!label) return;
+    const currentCols = attendanceCols[activeCourseId] || [];
+    const newCols = [...currentCols, { id: `col_${Date.now()}`, label }];
+    setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
+    const updatedStudents = rawActiveStudents.map(s => ({ ...s, faltas: [...(s.faltas || []), false] }));
+    setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
+  };
+
+  const handleRemoveAttendanceCol = (colIndex) => {
+    if (!window.confirm('Deseja excluir esta aula do registro de todos os alunos?')) return;
+    const currentCols = attendanceCols[activeCourseId] || [];
+    const newCols = currentCols.filter((_, i) => i !== colIndex);
+    setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
+    const updatedStudents = rawActiveStudents.map(s => {
+      const newFaltas = [...(s.faltas || [])];
+      newFaltas.splice(colIndex, 1);
+      return { ...s, faltas: newFaltas };
+    });
+    setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
+  };
+
+  const handlePrintPDF = () => { window.print(); };
+
   // Variáveis da Disciplina Ativa
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
   const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
@@ -396,9 +458,8 @@ function LmsEnterprisePortal() {
   // ==========================================
   // RENDERIZAÇÕES DOS MÓDULOS ESPECÍFICOS
   // ==========================================
-
   const renderForumModal = () => {
-    const forumData = forums[activeForumItem.id] || []; // Array de Tópicos
+    const forumData = forums[activeForumItem.id] || []; 
     const currentTopicData = forumData.find(t => t.id === activeTopicId);
 
     const handleCreateTopic = (e) => {
@@ -439,7 +500,6 @@ function LmsEnterprisePortal() {
           </div>
           
           <div className="flex-1 flex overflow-hidden bg-slate-50">
-            {/* Lista de Tópicos (Aparece se não tiver tópico ativo) */}
             {!activeTopicId ? (
               <div className="flex-1 p-6 overflow-y-auto">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6">
@@ -472,7 +532,6 @@ function LmsEnterprisePortal() {
                 </div>
               </div>
             ) : (
-              // Visão do Tópico Específico e Respostas
               <div className="flex-1 flex flex-col h-full bg-white">
                 <div className="p-4 border-b border-slate-100 bg-slate-50 shrink-0">
                   <button onClick={() => setActiveTopicId(null)} className="text-xs font-bold text-slate-500 hover:text-purple-700 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Voltar aos Tópicos</button>
@@ -480,7 +539,6 @@ function LmsEnterprisePortal() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
-                  {/* Post Original */}
                   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-3 mb-3 border-b border-slate-100 pb-3">
                       <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">{currentTopicData?.avatar}</div>
@@ -492,7 +550,6 @@ function LmsEnterprisePortal() {
                     <p className="text-slate-700 text-sm whitespace-pre-wrap">{currentTopicData?.description}</p>
                   </div>
 
-                  {/* Respostas */}
                   <div className="pl-8 space-y-4 border-l-2 border-slate-200">
                     {(currentTopicData?.replies || []).map(reply => (
                       <div key={reply.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative">
@@ -507,7 +564,6 @@ function LmsEnterprisePortal() {
                   </div>
                 </div>
 
-                {/* Form de Resposta */}
                 <div className="p-4 bg-white border-t border-slate-200 shrink-0">
                   <form onSubmit={handleReplyTopic} className="flex gap-3">
                     <textarea name="reply" required placeholder="Escreva sua resposta..." className="flex-1 border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none h-14"></textarea>
@@ -524,32 +580,38 @@ function LmsEnterprisePortal() {
 
   const renderExamModal = () => {
     const examData = exams[activeExamItem.id] || { questions: [], submissions: {} };
-    const [localQuestions, setLocalQuestions] = useState(examData.questions || []);
     
-    // Visão de Construção da Prova (Professor/Admin)
+    // Funções Seguras do Editor de Provas (Top-Level State modificado para State Derivado de Variável Global)
+    const handleAddQuestion = () => {
+      const newQ = [...localQuestions, { id: `q_${Date.now()}`, title: 'Nova Pergunta', options: ['Opção 1', 'Opção 2', 'Opção 3', 'Opção 4'], correctIndex: 0 }];
+      setLocalQuestions(newQ);
+    };
+    
+    const handleUpdateQuestion = (index, field, value) => {
+      const newQ = [...localQuestions];
+      newQ[index][field] = value;
+      setLocalQuestions(newQ);
+    };
+
+    const handleUpdateOption = (qIndex, oIndex, value) => {
+      const newQ = [...localQuestions];
+      newQ[qIndex].options[oIndex] = value;
+      setLocalQuestions(newQ);
+    };
+
+    const handleSaveExam = () => {
+      setDbExams({ ...exams, [activeExamItem.id]: { ...examData, questions: localQuestions } });
+      setActiveExamItem(null);
+      setLocalQuestions([]);
+      alert("Prova configurada e salva com sucesso!");
+    };
+
+    const handleCloseExam = () => {
+      setActiveExamItem(null);
+      setLocalQuestions([]);
+    };
+
     if (isEditing) {
-      const handleAddQuestion = () => {
-        setLocalQuestions([...localQuestions, { id: `q_${Date.now()}`, title: 'Nova Pergunta', options: ['Opção 1', 'Opção 2', 'Opção 3', 'Opção 4'], correctIndex: 0 }]);
-      };
-      
-      const handleUpdateQuestion = (index, field, value) => {
-        const newQ = [...localQuestions];
-        newQ[index][field] = value;
-        setLocalQuestions(newQ);
-      };
-
-      const handleUpdateOption = (qIndex, oIndex, value) => {
-        const newQ = [...localQuestions];
-        newQ[qIndex].options[oIndex] = value;
-        setLocalQuestions(newQ);
-      };
-
-      const handleSaveExam = () => {
-        setDbExams({ ...exams, [activeExamItem.id]: { ...examData, questions: localQuestions } });
-        setActiveExamItem(null);
-        alert("Prova configurada e salva com sucesso!");
-      };
-
       return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
@@ -561,7 +623,7 @@ function LmsEnterprisePortal() {
                   <p className="text-[10px] uppercase font-medium">Construtor Nativo</p>
                 </div>
               </div>
-              <button onClick={() => setActiveExamItem(null)} className="p-2 hover:bg-rose-800 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+              <button onClick={handleCloseExam} className="p-2 hover:bg-rose-800 rounded-full transition-colors"><X className="w-5 h-5"/></button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-6">
@@ -589,7 +651,7 @@ function LmsEnterprisePortal() {
             </div>
 
             <div className="p-4 bg-white border-t border-slate-200 shrink-0 flex justify-end gap-3">
-              <button onClick={() => setActiveExamItem(null)} className="px-6 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
+              <button onClick={handleCloseExam} className="px-6 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
               <button onClick={handleSaveExam} className="bg-rose-700 text-white font-bold px-6 py-2 rounded-lg hover:bg-rose-800 transition shadow-md">Salvar Prova Oficial</button>
             </div>
           </div>
@@ -597,9 +659,7 @@ function LmsEnterprisePortal() {
       );
     }
 
-    // Visão de Resolução da Prova (Aluno)
     const mySubmission = examData.submissions[currentUser.id];
-    
     const handleSumbitExam = (e) => {
       e.preventDefault();
       const formData = new FormData(e.target);
@@ -613,7 +673,6 @@ function LmsEnterprisePortal() {
       });
       
       const finalScore = ((score / examData.questions.length) * 10).toFixed(1);
-      
       const newSubmissions = { ...examData.submissions, [currentUser.id]: { score: finalScore, answers, submittedAt: new Date().toISOString() } };
       setDbExams({ ...exams, [activeExamItem.id]: { ...examData, submissions: newSubmissions } });
       alert(`Prova enviada com sucesso! Sua nota foi: ${finalScore}`);
@@ -627,7 +686,7 @@ function LmsEnterprisePortal() {
               <h2 className="font-black text-2xl leading-tight">{activeExamItem.title}</h2>
               <p className="text-xs text-rose-200 uppercase font-bold mt-1">Avaliação Oficial COREMU</p>
             </div>
-            <button onClick={() => setActiveExamItem(null)} className="p-2 hover:bg-rose-800 rounded-full transition-colors"><X className="w-6 h-6"/></button>
+            <button onClick={handleCloseExam} className="p-2 hover:bg-rose-800 rounded-full transition-colors"><X className="w-6 h-6"/></button>
           </div>
           
           <div className="flex-1 overflow-y-auto p-6 sm:p-10 bg-slate-50">
@@ -678,196 +737,7 @@ function LmsEnterprisePortal() {
   // ==========================================
   // RENDERIZAÇÕES PRINCIPAIS DAS TELAS
   // ==========================================
-  const renderUserHome = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Home className="w-8 h-8"/></div>
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Olá, {currentUser.nome}</h2>
-          <p className="text-sm text-slate-500 mt-1">Bem-vindo ao Portal COREMU. Selecione uma disciplina abaixo para acessar a sala de aula virtual.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {visibleCourses.length === 0 ? (
-          <div className="col-span-full text-center p-12 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-slate-500">
-            <Book className="w-12 h-12 mx-auto mb-3 text-slate-300"/>
-            <p className="font-bold text-lg text-slate-700">Nenhuma disciplina vinculada</p>
-            <p className="text-sm mt-1">Você ainda não possui turmas ou matriculas no semestre atual.</p>
-          </div>
-        ) : (
-          visibleCourses.map(c => {
-            if(!c) return null;
-            return (
-            <div key={c.id} onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home');}} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition cursor-pointer flex flex-col justify-between h-full group">
-              <div>
-                <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
-                <h3 className="font-bold text-slate-800 mt-3 group-hover:text-teal-700 transition leading-tight">{c.nome}</h3>
-                <p className="text-xs text-slate-500 mt-2">Professor Titular: {systemUsers[c.professorId]?.nome || 'Não definido'}</p>
-              </div>
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-teal-700 text-sm font-bold">
-                Acessar Sala <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
-              </div>
-            </div>
-          )})
-        )}
-      </div>
-    </div>
-  );
-
-  const renderAdminUsers = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-        <div className="p-3 bg-purple-50 text-purple-700 rounded-xl"><Users className="w-8 h-8"/></div>
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Gestão de Usuários</h2>
-          <p className="text-sm text-slate-500 mt-1">Cadastre, edite ou remova residentes e preceptores do sistema.</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-purple-600"/> Novo Usuário</h3>
-          <form onSubmit={handleCreateUser} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome Completo</label>
-              <input type="text" required value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Ex: Dra. Ana Costa" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Perfil de Acesso</label>
-              <select required value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white">
-                <option value="aluno">Aluno / Residente</option>
-                <option value="professor">Professor / Preceptor</option>
-                <option value="admin">Administrador (Gestão)</option>
-              </select>
-            </div>
-            <button type="submit" className="w-full bg-purple-800 text-white font-bold p-3 rounded-lg hover:bg-purple-900 transition flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4"/> Salvar na Nuvem
-            </button>
-          </form>
-        </div>
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-slate-600"/> Usuários Ativos</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-600 font-bold border-b">
-                <tr>
-                  <th className="p-3">Nome</th>
-                  <th className="p-3 text-center">Perfil</th>
-                  <th className="p-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {Object.values(systemUsers).map(u => {
-                  if(!u) return null;
-                  return (
-                  <tr key={u.id} className="hover:bg-slate-50">
-                    <td className="p-3 font-bold text-slate-800">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
-                          {u.avatar}
-                        </div>
-                        {editingUserId === u.id ? (
-                          <input type="text" value={editingUserName} onChange={e => setEditingUserName(e.target.value)} className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs" autoFocus />
-                        ) : (
-                          <span>{u.nome}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3 text-center">
-                      <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${u.role === 'admin' ? 'bg-slate-800 text-white' : u.role === 'professor' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right whitespace-nowrap">
-                      {editingUserId === u.id ? (
-                        <>
-                          <button onClick={() => handleSaveEditedUser(u.id)} className="text-emerald-600 hover:text-emerald-800 p-2" title="Salvar"><Check className="w-4 h-4 inline"/></button>
-                          <button onClick={handleCancelEditUser} className="text-slate-400 hover:text-slate-600 p-2" title="Cancelar"><X className="w-4 h-4 inline"/></button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => handleStartEditUser(u)} className="text-slate-400 hover:text-purple-600 p-2" title="Editar Nome"><Edit2 className="w-4 h-4 inline"/></button>
-                          {u.id !== 'admin1' && (
-                            <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700 p-2" title="Excluir"><Trash2 className="w-4 h-4 inline"/></button>
-                          )}
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                )})}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderAdminDashboard = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Shield className="w-8 h-8"/></div>
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Governança Acadêmica - COREMU</h2>
-          <p className="text-sm text-slate-500 mt-1">Crie disciplinas e gerencie as matrizes ativas na Nuvem.</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Book className="w-5 h-5 text-teal-600"/> Abrir Nova Disciplina</h3>
-          <form onSubmit={handleCreateCourse} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Código</label>
-              <input type="text" required value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)} placeholder="Ex: RMAB001" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome da Disciplina</label>
-              <input type="text" required value={newCourseName} onChange={e => setNewCourseName(e.target.value)} placeholder="Ex: Saúde Coletiva" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Professor Titular / Preceptor</label>
-              <select required value={newCourseProfId} onChange={e => setNewCourseProfId(e.target.value)} className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
-                <option value="">Selecione...</option>
-                {Object.values(systemUsers).filter(u => u && u.role === 'professor').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-              </select>
-            </div>
-            <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4"/> Salvar Disciplina
-            </button>
-          </form>
-        </div>
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Layout className="w-5 h-5 text-blue-600"/> Matriz Curricular Global</h3>
-          {courses.length === 0 ? (
-            <div className="text-center p-8 border border-dashed rounded-xl bg-slate-50 text-slate-500">Nenhuma disciplina ativa no sistema.</div>
-          ) : (
-            <div className="space-y-3">
-              {courses.map(c => {
-                if(!c) return null;
-                return (
-                <div key={c.id} className="p-4 border border-slate-200 rounded-xl hover:shadow-md transition bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
-                    <h4 className="font-bold text-slate-800 mt-1">{c.nome}</h4>
-                    <p className="text-xs text-slate-500 mt-1">Professor: <strong>{systemUsers[c.professorId]?.nome || 'Não definido'}</strong></p>
-                    <p className="text-xs text-slate-400">{Array.isArray(courseStudents[c.id]) ? courseStudents[c.id].length : 0} aluno(s) matriculado(s)</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => { setActiveCourseId(c.id); setCurrentView('participants'); }} className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-100 flex items-center gap-2">
-                      <Layout className="w-3.5 h-3.5"/> Abrir Disciplina
-                    </button>
-                    <button onClick={() => handleDeleteCourse(c.id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100">
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-              )})}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  // (Reaproveitamento das telas UserHome, AdminUsers, AdminDashboard, Participants, Grades, Attendance, Home, Modal)
 
   const renderCourseHome = () => (
     <div className="animate-fade-in relative">
@@ -966,10 +836,10 @@ function LmsEnterprisePortal() {
         </div>
       )}
 
-      {/* Renderização condicional dos Modais */}
+      {/* MODAL DE LEITURA DE TEXTO (TEXTCONTENT) */}
       {readingItem && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in flex flex-col h-[90vh]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
             <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><AlignLeft className="w-5 h-5"/></div>
@@ -1038,30 +908,30 @@ function LmsEnterprisePortal() {
                         )}
                         
                         {!isEditing && (
-                          <div className="mt-2 flex flex-wrap gap-2 print:hidden">
+                          <div className="mt-1.5 flex flex-wrap gap-2 print:hidden">
                             {item.fileName && item.url && (
-                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
                                 <Download className="w-3.5 h-3.5"/> Baixar {item.fileName}
                               </a>
                             )}
                             {item.type === 'NativeExam' && (
-                              <button onClick={() => setActiveExamItem(item)} className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-1.5 rounded-md transition shadow-md w-fit">
-                                <ClipboardList className="w-4 h-4"/> {isEditing || role === 'professor' ? 'Configurar Prova Oficial' : 'Acessar Avaliação'}
+                              <button onClick={() => { setActiveExamItem(item); setLocalQuestions(exams[item.id]?.questions || []); }} className="flex items-center gap-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-1.5 rounded-md transition shadow-md w-fit">
+                                <ClipboardList className="w-4 h-4"/> {(role === 'professor' || role === 'admin') ? 'Configurar Prova Oficial' : 'Acessar Avaliação'}
                               </button>
                             )}
                             {item.type === 'Link' && item.url && !item.fileName && (
-                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
-                                <Link className="w-3.5 h-3.5"/> Acessar Link Externo
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <Link className="w-3.5 h-3.5"/> Abrir Link Externo
                               </a>
                             )}
                             {item.type === 'TextContent' && (
-                              <button onClick={() => setReadingItem(item)} className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
-                                <AlignLeft className="w-3.5 h-3.5"/> Ler Conteúdo da Aula
+                              <button onClick={() => setReadingItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <AlignLeft className="w-3.5 h-3.5"/> Ler Conteúdo
                               </button>
                             )}
                             {item.type === 'MessageSquare' && (
-                              <button onClick={() => setActiveForumItem(item)} className="flex items-center gap-1.5 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
-                                <Users className="w-3.5 h-3.5"/> Abrir Fórum de Discussão
+                              <button onClick={() => setActiveForumItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <MessageSquare className="w-3.5 h-3.5"/> Abrir Fórum
                               </button>
                             )}
                           </div>
@@ -1085,155 +955,6 @@ function LmsEnterprisePortal() {
           )}
         </div>
       )})}
-    </div>
-  );
-
-  // Demais Renders (Manter os originais de Notas e Participantes)
-  const renderGradebook = () => (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
-      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
-        <div>
-          <h3 className="font-bold text-lg text-slate-800">Relatório de Notas</h3>
-          <p className="text-xs text-slate-500 print:hidden">Cálculo e consolidação do boletim.</p>
-        </div>
-        {(role === 'professor' || role === 'admin') && (
-          <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
-            <Printer className="w-4 h-4"/> Gerar PDF Oficial
-          </button>
-        )}
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="bg-slate-800 text-white border-b border-slate-300 print:bg-slate-200 print:text-slate-800 print:border-b-2">
-              <th className="p-3 font-semibold w-1/4">Estudante</th>
-              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GA</th>
-              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GB</th>
-              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GC</th>
-              <th className="p-3 font-semibold bg-teal-800 print:bg-slate-300 print:text-slate-900 text-center">Total</th>
-              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">Status</th>
-              <th className="p-3 font-semibold">Feedback Contínuo</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {visibleGradesAndAttendance.length === 0 ? (
-              <tr><td colSpan="7" className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso às notas.</td></tr>
-            ) : (
-              visibleGradesAndAttendance.map((aluno, idx) => {
-                if(!aluno) return null;
-                const total = ((aluno.ga||0) + (aluno.gb||0) + (aluno.gc||0)).toFixed(2);
-                const isApproved = total >= 14 || (aluno.gc > 0 && total >= 15);
-
-                return (
-                  <tr key={aluno.studentId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="p-3 font-bold text-slate-700 border-r border-slate-200">{aluno.nome}</td>
-                    <td className="p-2 border-r border-slate-200 text-center">
-                      {isEditing ? <input type="number" step="0.1" value={aluno.ga||''} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.ga}</span>}
-                    </td>
-                    <td className="p-2 border-r border-slate-200 text-center">
-                      {isEditing ? <input type="number" step="0.1" value={aluno.gb||''} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gb}</span>}
-                    </td>
-                    <td className="p-2 border-r border-slate-200 text-center">
-                      {isEditing ? <input type="number" step="0.1" value={aluno.gc||''} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gc}</span>}
-                    </td>
-                    <td className="p-3 border-r border-slate-200 text-center font-black bg-slate-100 print:bg-white text-base">{total}</td>
-                    <td className="p-3 border-r border-slate-200 text-center">
-                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider print:border ${isApproved ? 'bg-emerald-100 text-emerald-800 print:border-emerald-500' : 'bg-red-100 text-red-800 print:border-red-500'}`}>
-                        {isApproved ? 'Aprovado' : 'Em Exame'}
-                      </span>
-                    </td>
-                    <td className="p-2">
-                      {isEditing ? <input type="text" value={aluno.feedback||''} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="text-xs text-slate-500 italic">{aluno.feedback || "Sem feedback no momento."}</span>}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const renderAttendance = () => (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
-      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
-        <div>
-          <h3 className="font-bold text-lg text-slate-800">Diário de Classe - Frequência Oficial</h3>
-          <p className="text-xs text-slate-500 print:hidden">Marque a caixa para indicar "Falta". Aulas desmarcadas equivalem a Presença.</p>
-        </div>
-        <div className="flex gap-2">
-          {isEditing && (
-            <button onClick={handleAddAttendanceCol} className="bg-teal-100 text-teal-800 border border-teal-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-200 transition print:hidden">
-              <Plus className="w-4 h-4"/> Nova Aula
-            </button>
-          )}
-          <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
-            <Printer className="w-4 h-4"/> Gerar PDF Oficial
-          </button>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="bg-slate-200 text-slate-700 print:bg-slate-200 print:border-b-2">
-              <th rowSpan="2" className="p-3 border border-slate-300 font-bold min-w-[200px]">Estudante</th>
-              <th rowSpan="2" className="p-3 border border-slate-300 font-bold text-center">Faltas Computadas</th>
-              {currentAttendanceCols.length > 0 ? (
-                <th colSpan={currentAttendanceCols.length} className="p-2 border border-slate-300 font-bold text-center bg-slate-300 print:bg-slate-300">Dias de Aula Registrados</th>
-              ) : (
-                <th rowSpan="2" className="p-3 border border-slate-300 font-bold text-center text-slate-400 italic">Nenhuma aula registrada</th>
-              )}
-            </tr>
-            {currentAttendanceCols.length > 0 && (
-              <tr className="bg-slate-100 text-slate-700 text-center text-[10px]">
-                {currentAttendanceCols.map((col, index) => (
-                  <th key={col.id} className="p-2 border border-slate-300 relative group min-w-[80px]">
-                    {col.label}
-                    {isEditing && (
-                      <button onClick={() => handleRemoveAttendanceCol(index)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition print:hidden shadow-sm">
-                        <X className="w-3 h-3"/>
-                      </button>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            )}
-          </thead>
-          <tbody>
-            {visibleGradesAndAttendance.length === 0 ? (
-              <tr><td colSpan={2 + currentAttendanceCols.length} className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso ao diário.</td></tr>
-            ) : (
-              visibleGradesAndAttendance.map((aluno) => {
-                if(!aluno) return null;
-                const faltasArray = aluno.faltas || new Array(currentAttendanceCols.length).fill(false);
-                const qtdeFaltas = faltasArray.filter(f => f).length;
-                return (
-                  <tr key={aluno.studentId} className="hover:bg-slate-50 print:border-b print:border-slate-200">
-                    <td className="p-3 border border-slate-200 font-bold text-slate-800">{aluno.nome}</td>
-                    <td className="p-3 border border-slate-200 text-center">
-                      <span className={`font-black text-sm ${qtdeFaltas > 1 ? 'text-red-600' : 'text-slate-700'}`}>{qtdeFaltas}</span>
-                    </td>
-                    {currentAttendanceCols.map((col, i) => {
-                      const isFalta = faltasArray[i];
-                      return (
-                        <td key={col.id} className={`p-2 border border-slate-200 text-center transition-colors ${isEditing ? 'cursor-pointer hover:opacity-80' : ''} ${isFalta ? 'bg-slate-800 print:bg-white print:text-black' : 'bg-emerald-700 print:bg-white print:text-black'}`} onClick={() => isEditing && toggleAttendance(aluno.studentId, i)}>
-                          <div className="print:hidden">
-                            <input type="checkbox" checked={!isFalta} readOnly className="w-4 h-4 rounded text-white pointer-events-none" />
-                          </div>
-                          <div className="hidden print:block font-black text-sm">
-                            {isFalta ? 'F' : '•'}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 
