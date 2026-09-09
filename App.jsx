@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check, Loader2
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check
 } from 'lucide-react';
 
 // ==========================================
@@ -21,9 +21,47 @@ const firebaseConfig = {
   appId: "1:1089100227489:web:3b0102e76b25f2c9e8a1e0"
 };
 
-// Inicialização segura para evitar conflitos no Vercel (Strict Mode)
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+let app;
+let db;
+try {
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  db = getFirestore(app);
+} catch (e) {
+  console.error("Erro crítico na inicialização do Firebase", e);
+}
+
+// ==========================================
+// ESCUDO CONTRA TELA BRANCA (ERROR BOUNDARY)
+// ==========================================
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, info: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    this.setState({ info });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 bg-red-50 h-screen overflow-auto">
+          <h1 className="text-2xl font-bold text-red-700 mb-4">🚨 Ocorreu um Erro no Sistema</h1>
+          <p className="text-slate-700 mb-4">A tela branca foi interceptada. Por favor, tire um print do erro abaixo para que eu possa consertar a linha exata:</p>
+          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
+            {this.state.error?.toString()}
+          </pre>
+          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-slate-600 overflow-x-auto mt-4 whitespace-pre-wrap">
+            {this.state.info?.componentStack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ==========================================
 // HOOK BLINDADO DE SINCRONIZAÇÃO (NUVEM)
@@ -33,26 +71,29 @@ const useFirestoreDB = (docName, initialValue) => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    if (!db) {
+      setIsLoaded(true);
+      return;
+    }
     try {
       const unsub = onSnapshot(doc(db, 'coremu_database', docName), 
         (docSnap) => {
           if (docSnap.exists()) {
             setData(docSnap.data().value || initialValue);
           } else {
-            setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch(e => console.error("Erro silencioso ao criar db:", e));
+            setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch(e => console.error("Erro silencioso:", e));
             setData(initialValue);
           }
           setIsLoaded(true);
         },
         (error) => {
-          console.error(`Erro no Firebase ao ler [${docName}]:`, error);
-          setData(initialValue); // Fallback de emergência (Evita Tela Branca)
+          console.error(`Erro de leitura [${docName}]:`, error);
+          setData(initialValue);
           setIsLoaded(true);
         }
       );
       return () => unsub();
     } catch (err) {
-      console.error("Falha ao iniciar Firebase:", err);
       setData(initialValue);
       setIsLoaded(true);
     }
@@ -61,21 +102,23 @@ const useFirestoreDB = (docName, initialValue) => {
   const updateData = async (newValue) => {
     const valToSave = typeof newValue === 'function' ? newValue(data) : newValue;
     setData(valToSave); 
-    try {
-      await setDoc(doc(db, 'coremu_database', docName), { value: valToSave });
-    } catch (error) {
-      console.error("Falha ao gravar na nuvem:", error);
+    if (db) {
+      try {
+        await setDoc(doc(db, 'coremu_database', docName), { value: valToSave });
+      } catch (error) {
+        console.error("Falha ao gravar na nuvem:", error);
+      }
     }
   };
 
   return [data, updateData, isLoaded];
 };
 
-export default function LmsEnterprisePortal() {
+// ==========================================
+// COMPONENTE PRINCIPAL DO PORTAL
+// ==========================================
+function LmsEnterprisePortal() {
   
-  // ==========================================
-  // BANCO DE DADOS EM NUVEM (TABELAS)
-  // ==========================================
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
@@ -100,22 +143,15 @@ export default function LmsEnterprisePortal() {
     'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }]
   });
 
-  // ==========================================
-  // VARIÁVEIS DE SEGURANÇA CONTRA TELA BRANCA
-  // ==========================================
-  const systemUsers = dbUsers || {};
+  // Variáveis com blindagem total contra undefined
+  const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
-  const courseContents = dbContents || {};
-  const courseStudents = dbStudents || {};
+  const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
+  const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
 
-  // ==========================================
-  // ESTADOS GLOBAIS DE NAVEGAÇÃO E PERFIL
-  // ==========================================
   const [activeUserId, setActiveUserId] = useState('admin1');
-  
-  // Garantia de que o currentUser nunca será undefined
   const currentUser = systemUsers[activeUserId] || systemUsers['admin1'] || { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' };
-  const role = currentUser.role;
+  const role = currentUser?.role || 'admin';
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentView, setCurrentView] = useState('admin_dashboard'); 
@@ -125,38 +161,32 @@ export default function LmsEnterprisePortal() {
 
   const canEdit = editMode && (role === 'admin' || role === 'professor');
 
-  // ==========================================
-  // ESTADOS DO MODAL DE RECURSOS 
-  // ==========================================
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
   const [newFile, setNewFile] = useState(null);
 
-  // ==========================================
-  // TELA DE CARREGAMENTO (AGUARDANDO FIREBASE)
-  // ==========================================
+  // Exibe a tela de carregamento (sem ícones complexos) enquanto o Firebase conecta
   const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded;
   if (!isDbReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
-        <Loader2 className="w-12 h-12 text-teal-600 animate-spin mb-4" />
-        <h2 className="text-xl font-black text-slate-800">Conectando à Nuvem</h2>
-        <p className="text-sm text-slate-500 mt-2">Sincronizando banco de dados do Portal COREMU...</p>
+        <div className="w-12 h-12 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin mb-4"></div>
+        <h2 className="text-xl font-black text-slate-800">Sincronizando com a Nuvem</h2>
+        <p className="text-sm text-slate-500 mt-2">Conectando ao banco de dados do Portal COREMU...</p>
       </div>
     );
   }
 
-  // ==========================================
-  // LÓGICA DE RBAC E TROCA DE USUÁRIO
-  // ==========================================
+  // Filtragem e Troca de Usuários
   const visibleCourses = courses.filter(c => {
+    if (!c) return false;
     if (role === 'admin') return true;
     if (role === 'professor') return c.professorId === currentUser.id;
     if (role === 'aluno') {
       const enrolled = courseStudents[c.id] || [];
-      return enrolled.some(enrollment => enrollment.studentId === currentUser.id);
+      return Array.isArray(enrolled) && enrolled.some(enrollment => enrollment?.studentId === currentUser.id);
     }
     return false;
   });
@@ -167,9 +197,13 @@ export default function LmsEnterprisePortal() {
     
     const newRole = systemUsers[userId]?.role || 'aluno';
     const newVisibleCourses = courses.filter(c => {
+      if (!c) return false;
       if (newRole === 'admin') return true;
       if (newRole === 'professor') return c.professorId === userId;
-      if (newRole === 'aluno') return (courseStudents[c.id] || []).some(e => e.studentId === userId);
+      if (newRole === 'aluno') {
+        const enrolled = courseStudents[c.id] || [];
+        return Array.isArray(enrolled) && enrolled.some(e => e?.studentId === userId);
+      }
       return false;
     });
 
@@ -187,9 +221,7 @@ export default function LmsEnterprisePortal() {
     }
   };
 
-  // ==========================================
-  // FUNÇÕES: GESTÃO DE USUÁRIOS
-  // ==========================================
+  // Funções de Gestão de Usuários
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('aluno');
   const [editingUserId, setEditingUserId] = useState(null);
@@ -200,11 +232,7 @@ export default function LmsEnterprisePortal() {
     if (!newUserName) return;
     const newId = `usr_${Date.now()}`;
     const initials = newUserName.substring(0, 2).toUpperCase();
-    
-    setDbUsers({
-      ...systemUsers,
-      [newId]: { id: newId, nome: newUserName, role: newUserRole, avatar: initials }
-    });
+    setDbUsers({ ...systemUsers, [newId]: { id: newId, nome: newUserName, role: newUserRole, avatar: initials } });
     setNewUserName('');
     alert('Usuário cadastrado com sucesso!');
   };
@@ -219,31 +247,24 @@ export default function LmsEnterprisePortal() {
   };
 
   const handleStartEditUser = (user) => {
+    if (!user) return;
     setEditingUserId(user.id);
     setEditingUserName(user.nome);
   };
 
   const handleSaveEditedUser = (id) => {
-    if (!editingUserName.trim()) {
-      alert("O nome do usuário não pode ficar em branco.");
-      return;
-    }
+    if (!editingUserName.trim()) return alert("O nome não pode ficar em branco.");
     const updatedUsers = { ...systemUsers };
-    updatedUsers[id].nome = editingUserName;
-    updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase();
-    setDbUsers(updatedUsers);
+    if(updatedUsers[id]) {
+      updatedUsers[id].nome = editingUserName;
+      updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase();
+      setDbUsers(updatedUsers);
+    }
     setEditingUserId(null);
     setEditingUserName('');
   };
 
-  const handleCancelEditUser = () => {
-    setEditingUserId(null);
-    setEditingUserName('');
-  };
-
-  // ==========================================
-  // FUNÇÕES: GESTÃO DE DISCIPLINAS
-  // ==========================================
+  // Funções de Disciplinas
   const [newCourseCode, setNewCourseCode] = useState('');
   const [newCourseName, setNewCourseName] = useState('');
   const [newCourseProfId, setNewCourseProfId] = useState('');
@@ -253,18 +274,16 @@ export default function LmsEnterprisePortal() {
     e.preventDefault();
     if (!newCourseCode || !newCourseName || !newCourseProfId) return;
     const newId = `c_${Date.now()}`;
-    
     setDbCourses([...courses, { id: newId, codigo: newCourseCode, nome: newCourseName, professorId: newCourseProfId }]);
     setDbContents({ ...courseContents, [newId]: defaultModules });
     setDbStudents({ ...courseStudents, [newId]: [] });
-    
     setNewCourseCode(''); setNewCourseName(''); setNewCourseProfId('');
     alert('Disciplina criada com sucesso!');
   };
 
   const handleDeleteCourse = (id) => {
     if (window.confirm('Atenção: Excluir esta disciplina apagará todo o conteúdo. Confirmar?')) {
-      setDbCourses(courses.filter(c => c.id !== id));
+      setDbCourses(courses.filter(c => c && c.id !== id));
       if (activeCourseId === id) {
         setActiveCourseId(null);
         setCurrentView('admin_dashboard');
@@ -276,20 +295,19 @@ export default function LmsEnterprisePortal() {
     e.preventDefault();
     if (!newStudentId) return;
     const newStudentData = { studentId: newStudentId, ga: 0, gb: 0, gc: 0, faltas: [false, false, false], feedback: "" };
-    setDbStudents({ ...courseStudents, [courseId]: [...(courseStudents[courseId] || []), newStudentData] });
+    const currentEnrolled = Array.isArray(courseStudents[courseId]) ? courseStudents[courseId] : [];
+    setDbStudents({ ...courseStudents, [courseId]: [...currentEnrolled, newStudentData] });
     setNewStudentId('');
   };
 
-  // ==========================================
-  // VARIÁVEIS DERIVADAS
-  // ==========================================
-  const activeContent = courseContents[activeCourseId] || [];
-  const rawActiveStudents = courseStudents[activeCourseId] || [];
-  const activeCourseObj = courses.find(c => c.id === activeCourseId);
+  // Variáveis da Disciplina Ativa
+  const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
+  const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
+  const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
 
   const studentsInCourse = rawActiveStudents.map(enrollment => ({
     ...enrollment,
-    nome: systemUsers[enrollment.studentId]?.nome || 'Usuário Excluído'
+    nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído'
   }));
 
   const visibleGradesAndAttendance = role === 'aluno' 
@@ -297,12 +315,10 @@ export default function LmsEnterprisePortal() {
     : studentsInCourse;
 
   const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => 
-    u.role === 'aluno' && !rawActiveStudents.some(s => s.studentId === u.id)
+    u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id)
   );
 
-  // ==========================================
-  // FUNÇÕES: CONTEÚDO E ANEXOS
-  // ==========================================
+  // Modificações de Conteúdo
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
 
@@ -312,10 +328,10 @@ export default function LmsEnterprisePortal() {
     setExpandedModules(prev => ({ ...prev, [newSection.id]: true }));
   };
 
-  const updateSectionTitle = (id, newTitle) => updateContent(activeContent.map(sec => sec.id === id ? { ...sec, title: newTitle } : sec));
-  const deleteSection = (id) => { if (window.confirm('Excluir este módulo?')) updateContent(activeContent.filter(sec => sec.id !== id)); };
-  const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec.id === sectionId ? { ...sec, items: sec.items.map(item => item.id === itemId ? { ...item, title: newTitle } : item) } : sec));
-  const deleteItem = (sectionId, itemId) => updateContent(activeContent.map(sec => sec.id === sectionId ? { ...sec, items: sec.items.filter(item => item.id !== itemId) } : sec));
+  const updateSectionTitle = (id, newTitle) => updateContent(activeContent.map(sec => sec?.id === id ? { ...sec, title: newTitle } : sec));
+  const deleteSection = (id) => { if (window.confirm('Excluir este módulo?')) updateContent(activeContent.filter(sec => sec?.id !== id)); };
+  const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).map(item => item?.id === itemId ? { ...item, title: newTitle } : item) } : sec));
+  const deleteItem = (sectionId, itemId) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).filter(item => item?.id !== itemId) } : sec));
 
   const handleOpenAddItemModal = (sectionId) => {
     setActiveSectionForNewItem(sectionId);
@@ -328,7 +344,6 @@ export default function LmsEnterprisePortal() {
   const handleConfirmAddItem = (e) => {
     e.preventDefault();
     if (!newItemTitle) return;
-
     let color = 'text-slate-500';
     if (newItemType === 'FileText') color = 'text-red-500';
     else if (newItemType === 'Link') color = 'text-blue-500';
@@ -336,16 +351,11 @@ export default function LmsEnterprisePortal() {
     else if (newItemType === 'Upload') color = 'text-teal-600';
 
     updateContent(activeContent.map(sec => {
-      if (sec.id === activeSectionForNewItem) {
+      if (sec?.id === activeSectionForNewItem) {
         return {
           ...sec,
-          items: [...sec.items, { 
-            id: `item_${Date.now()}`, 
-            title: newItemTitle, 
-            type: newItemType, 
-            color: color,
-            url: newItemUrl || null,
-            fileName: newFile ? newFile.name : null 
+          items: [...(sec.items || []), { 
+            id: `item_${Date.now()}`, title: newItemTitle, type: newItemType, color: color, url: newItemUrl || null, fileName: newFile ? newFile.name : null 
           }]
         };
       }
@@ -355,46 +365,40 @@ export default function LmsEnterprisePortal() {
   };
 
   const updateGrade = (studentId, field, value) => {
-    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
+    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
   };
-
   const updateFeedback = (studentId, value) => {
-    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s.studentId === studentId ? { ...s, feedback: value } : s) });
+    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, feedback: value } : s) });
   };
-
   const toggleAttendance = (studentId, index) => {
     setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => {
-        if (s.studentId === studentId) {
-          const newFaltas = [...s.faltas];
+        if (s?.studentId === studentId) {
+          const newFaltas = [...(s.faltas || [])];
           newFaltas[index] = !newFaltas[index]; 
           return { ...s, faltas: newFaltas };
         }
         return s;
     })});
   };
-
   const deleteStudent = (studentId) => {
     if (window.confirm('Remover a matrícula?')) {
-      setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.filter(s => s.studentId !== studentId) });
+      setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.filter(s => s?.studentId !== studentId) });
     }
   };
 
   const getIconComponent = (type) => {
     switch (type) {
-      case 'FileText': return FileText;
-      case 'MessageSquare': return MessageSquare;
-      case 'Folder': return Folder;
-      case 'Upload': return Upload;
-      case 'CheckCircle': return CheckCircle;
-      case 'Link': return Link;
-      default: return FileText;
+      case 'FileText': return FileText || (() => <span>FT</span>);
+      case 'MessageSquare': return MessageSquare || (() => <span>MS</span>);
+      case 'Folder': return Folder || (() => <span>FD</span>);
+      case 'Upload': return Upload || (() => <span>UP</span>);
+      case 'CheckCircle': return CheckCircle || (() => <span>CC</span>);
+      case 'Link': return Link || (() => <span>LK</span>);
+      default: return FileText || (() => <span>FT</span>);
     }
   };
 
-  // ==========================================
-  // COMPONENTES DE TELA (VIEWS)
-  // ==========================================
-
+  // TELAS
   const renderAdminUsers = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
@@ -404,7 +408,6 @@ export default function LmsEnterprisePortal() {
           <p className="text-sm text-slate-500 mt-1">Cadastre, edite ou remova residentes e preceptores do sistema.</p>
         </div>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-purple-600"/> Novo Usuário</h3>
@@ -426,7 +429,6 @@ export default function LmsEnterprisePortal() {
             </button>
           </form>
         </div>
-
         <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-slate-600"/> Usuários Ativos</h3>
           <div className="overflow-x-auto">
@@ -439,7 +441,9 @@ export default function LmsEnterprisePortal() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {Object.values(systemUsers).map(u => (
+                {Object.values(systemUsers).map(u => {
+                  if(!u) return null;
+                  return (
                   <tr key={u.id} className="hover:bg-slate-50">
                     <td className="p-3 font-bold text-slate-800">
                       <div className="flex items-center gap-3">
@@ -480,7 +484,7 @@ export default function LmsEnterprisePortal() {
                       )}
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -498,7 +502,6 @@ export default function LmsEnterprisePortal() {
           <p className="text-sm text-slate-500 mt-1">Crie disciplinas e gerencie as matrizes ativas na Nuvem.</p>
         </div>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Book className="w-5 h-5 text-teal-600"/> Abrir Nova Disciplina</h3>
@@ -515,7 +518,7 @@ export default function LmsEnterprisePortal() {
               <label className="text-xs font-bold text-slate-500 uppercase">Professor Titular / Preceptor</label>
               <select required value={newCourseProfId} onChange={e => setNewCourseProfId(e.target.value)} className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
                 <option value="">Selecione...</option>
-                {Object.values(systemUsers).filter(u => u.role === 'professor').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                {Object.values(systemUsers).filter(u => u && u.role === 'professor').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </div>
             <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition flex items-center justify-center gap-2">
@@ -523,20 +526,21 @@ export default function LmsEnterprisePortal() {
             </button>
           </form>
         </div>
-
         <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Layout className="w-5 h-5 text-blue-600"/> Matriz Curricular Global</h3>
           {courses.length === 0 ? (
             <div className="text-center p-8 border border-dashed rounded-xl bg-slate-50 text-slate-500">Nenhuma disciplina ativa no sistema.</div>
           ) : (
             <div className="space-y-3">
-              {courses.map(c => (
+              {courses.map(c => {
+                if(!c) return null;
+                return (
                 <div key={c.id} className="p-4 border border-slate-200 rounded-xl hover:shadow-md transition bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
                     <h4 className="font-bold text-slate-800 mt-1">{c.nome}</h4>
-                    <p className="text-xs text-slate-500 mt-1">Professor: <strong>{systemUsers[c.professorId]?.nome}</strong></p>
-                    <p className="text-xs text-slate-400">{(courseStudents[c.id] || []).length} aluno(s) matriculado(s)</p>
+                    <p className="text-xs text-slate-500 mt-1">Professor: <strong>{systemUsers[c.professorId]?.nome || 'Não definido'}</strong></p>
+                    <p className="text-xs text-slate-400">{Array.isArray(courseStudents[c.id]) ? courseStudents[c.id].length : 0} aluno(s) matriculado(s)</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => { setActiveCourseId(c.id); setCurrentView('admin_students'); }} className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-100 flex items-center gap-2">
@@ -547,7 +551,7 @@ export default function LmsEnterprisePortal() {
                     </button>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </div>
@@ -562,7 +566,6 @@ export default function LmsEnterprisePortal() {
           <ChevronRight className="w-4 h-4 rotate-180 mr-1"/> Voltar às Disciplinas
         </button>
       </div>
-
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <h2 className="text-xl font-black text-slate-800">Gestão de Matrículas</h2>
         <p className="text-sm text-slate-500 mt-1">Disciplina: <strong className="text-teal-700">{activeCourseObj?.codigo}</strong> - {activeCourseObj?.nome}</p>
@@ -590,7 +593,9 @@ export default function LmsEnterprisePortal() {
               {studentsInCourse.length === 0 ? (
                 <tr><td colSpan="3" className="p-6 text-center text-slate-500">Nenhum aluno matriculado nesta disciplina.</td></tr>
               ) : (
-                studentsInCourse.map(s => (
+                studentsInCourse.map(s => {
+                  if(!s) return null;
+                  return (
                   <tr key={s.studentId} className="hover:bg-slate-50">
                     <td className="p-3 font-bold text-slate-800">{s.nome}</td>
                     <td className="p-3 text-center"><span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-1 rounded font-bold uppercase">Ativo</span></td>
@@ -598,7 +603,7 @@ export default function LmsEnterprisePortal() {
                       <button onClick={() => deleteStudent(s.studentId)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4 inline"/></button>
                     </td>
                   </tr>
-                ))
+                )})
               )}
             </tbody>
           </table>
@@ -623,7 +628,6 @@ export default function LmsEnterprisePortal() {
 
   const renderCourseHome = () => (
     <div className="animate-fade-in relative">
-      
       {activeSectionForNewItem && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
@@ -695,15 +699,17 @@ export default function LmsEnterprisePortal() {
         </div>
       )}
 
-      {activeContent.map(section => (
-        <div key={section.id} className={`mb-6 rounded-lg border ${section.borderColor} overflow-hidden shadow-sm bg-white`}>
-          <div className={`flex items-center justify-between p-3 ${section.bgColor} border-b ${section.borderColor}`}>
+      {activeContent.map(section => {
+        if(!section) return null;
+        return(
+        <div key={section.id} className={`mb-6 rounded-lg border ${section.borderColor || 'border-slate-200'} overflow-hidden shadow-sm bg-white`}>
+          <div className={`flex items-center justify-between p-3 ${section.bgColor || 'bg-slate-50'} border-b ${section.borderColor || 'border-slate-200'}`}>
             <div className="flex items-center gap-3 w-full">
               <button onClick={() => toggleModule(section.id)} className="p-1 hover:bg-slate-200 rounded">
                 {expandedModules[section.id] !== false ? <ChevronDown className="w-5 h-5 text-slate-500"/> : <ChevronRight className="w-5 h-5 text-slate-500"/>}
               </button>
               {canEdit ? (
-                <input type="text" value={section.title} onChange={(e) => updateSectionTitle(section.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-base font-bold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
+                <input type="text" value={section.title || ''} onChange={(e) => updateSectionTitle(section.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-base font-bold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
               ) : (
                 <h3 className="text-base font-bold text-slate-800 cursor-pointer" onClick={() => toggleModule(section.id)}>{section.title}</h3>
               )}
@@ -715,16 +721,17 @@ export default function LmsEnterprisePortal() {
 
           {expandedModules[section.id] !== false && (
             <div className="p-0">
-              {section.items.map(item => {
+              {(section.items || []).map(item => {
+                if(!item) return null;
                 const IconComponent = getIconComponent(item.type);
                 return (
                   <div key={item.id} className="flex items-start justify-between p-4 border-b border-slate-100 hover:bg-slate-50 group">
                     <div className="flex items-start gap-3 w-full">
                       {canEdit && <GripVertical className="w-4 h-4 text-slate-300 cursor-move mt-1" />}
-                      <IconComponent className={`w-5 h-5 ${item.color} flex-shrink-0 mt-0.5`} />
+                      <IconComponent className={`w-5 h-5 ${item.color || 'text-slate-500'} flex-shrink-0 mt-0.5`} />
                       <div className="flex-1">
                         {canEdit ? (
-                          <input type="text" value={item.title} onChange={(e) => updateItemTitle(section.id, item.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-sm font-semibold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
+                          <input type="text" value={item.title || ''} onChange={(e) => updateItemTitle(section.id, item.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-sm font-semibold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
                         ) : (
                           <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
                         )}
@@ -757,7 +764,7 @@ export default function LmsEnterprisePortal() {
             </div>
           )}
         </div>
-      ))}
+      )})}
     </div>
   );
 
@@ -792,7 +799,8 @@ export default function LmsEnterprisePortal() {
               <tr><td colSpan="7" className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso às notas.</td></tr>
             ) : (
               visibleGradesAndAttendance.map((aluno, idx) => {
-                const total = (aluno.ga + aluno.gb + aluno.gc).toFixed(2);
+                if(!aluno) return null;
+                const total = ((aluno.ga||0) + (aluno.gb||0) + (aluno.gc||0)).toFixed(2);
                 const isApproved = total >= 14 || (aluno.gc > 0 && total >= 15);
 
                 return (
@@ -801,17 +809,17 @@ export default function LmsEnterprisePortal() {
                     
                     <td className="p-2 border-r border-slate-200 text-center">
                       {canEdit ? (
-                        <input type="number" step="0.1" value={aluno.ga} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
+                        <input type="number" step="0.1" value={aluno.ga||''} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
                       ) : (<span className="font-bold text-slate-700">{aluno.ga}</span>)}
                     </td>
                     <td className="p-2 border-r border-slate-200 text-center">
                       {canEdit ? (
-                        <input type="number" step="0.1" value={aluno.gb} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
+                        <input type="number" step="0.1" value={aluno.gb||''} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
                       ) : (<span className="font-bold text-slate-700">{aluno.gb}</span>)}
                     </td>
                     <td className="p-2 border-r border-slate-200 text-center">
                       {canEdit ? (
-                        <input type="number" step="0.1" value={aluno.gc} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
+                        <input type="number" step="0.1" value={aluno.gc||''} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
                       ) : (<span className="font-bold text-slate-700">{aluno.gc}</span>)}
                     </td>
                     
@@ -825,7 +833,7 @@ export default function LmsEnterprisePortal() {
                     
                     <td className="p-2">
                       {canEdit ? (
-                        <input type="text" value={aluno.feedback} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
+                        <input type="text" value={aluno.feedback||''} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
                       ) : (<span className="text-xs text-slate-500 italic">{aluno.feedback || "Sem feedback no momento."}</span>)}
                     </td>
                   </tr>
@@ -863,14 +871,15 @@ export default function LmsEnterprisePortal() {
               <tr><td colSpan="5" className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso ao diário.</td></tr>
             ) : (
               visibleGradesAndAttendance.map((aluno) => {
-                const qtdeFaltas = aluno.faltas.filter(f => f).length;
+                if(!aluno) return null;
+                const qtdeFaltas = (aluno.faltas || []).filter(f => f).length;
                 return (
                   <tr key={aluno.studentId} className="hover:bg-slate-50">
                     <td className="p-2 border border-slate-200 font-medium text-slate-800">{aluno.nome}</td>
                     <td className="p-2 border border-slate-200 text-center">
                       <span className={`font-black text-sm ${qtdeFaltas > 1 ? 'text-red-600' : 'text-slate-700'}`}>{qtdeFaltas}</span>
                     </td>
-                    {aluno.faltas.map((falta, i) => (
+                    {(aluno.faltas || []).map((falta, i) => (
                       <td key={i} className={`p-2 border border-slate-200 text-center transition-colors ${canEdit ? 'cursor-pointer hover:opacity-80' : ''} ${falta ? 'bg-slate-800' : 'bg-emerald-700'}`} onClick={() => canEdit && toggleAttendance(aluno.studentId, i)}>
                         <input type="checkbox" checked={!falta} readOnly className="w-4 h-4 rounded text-white pointer-events-none" />
                       </td>
@@ -925,7 +934,9 @@ export default function LmsEnterprisePortal() {
             {visibleCourses.length === 0 ? (
               <div className="px-4 text-xs text-slate-600 italic mt-2">Nenhuma disciplina.</div>
             ) : (
-              visibleCourses.map(c => (
+              visibleCourses.map(c => {
+                if(!c) return null;
+                return (
                 <div key={c.id}>
                   <button onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home'); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${activeCourseId === c.id && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && currentView !== 'admin_users' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 text-slate-400'}`}>
                     <Book className="w-5 h-5 flex-shrink-0" />
@@ -943,7 +954,7 @@ export default function LmsEnterprisePortal() {
                     </div>
                   )}
                 </div>
-              ))
+              )})
             )}
           </nav>
         </div>
@@ -952,9 +963,10 @@ export default function LmsEnterprisePortal() {
           <div className="p-4 bg-slate-950 border-t border-slate-800 z-50">
             <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Simular Login de Usuário</p>
             <select value={activeUserId} onChange={(e) => switchUser(e.target.value)} className="w-full bg-slate-800 text-xs font-bold text-slate-300 p-2 rounded border border-slate-700 outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer">
-              {Object.values(systemUsers).map(u => (
-                <option key={u.id} value={u.id}>{u.nome} ({u.role})</option>
-              ))}
+              {Object.values(systemUsers).map(u => {
+                if(!u) return null;
+                return (<option key={u.id} value={u.id}>{u.nome} ({u.role})</option>)
+              })}
             </select>
           </div>
         )}
@@ -1031,5 +1043,14 @@ export default function LmsEnterprisePortal() {
         </main>
       </div>
     </div>
+  );
+}
+
+// Exportando com o Escudo de Erros ativo
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <LmsEnterprisePortal />
+    </ErrorBoundary>
   );
 }
