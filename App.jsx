@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { 
-  Menu, Bell, Search, Home, Book, Calendar, Users, BarChart, Settings, 
+  Menu, Bell, Search, Home, Book, Calendar, Users, BarChart, 
   ChevronDown, ChevronRight, Edit2, Plus, MoreVertical, FileText, 
-  MessageSquare, FileBox, CheckSquare, Upload, Download, LogOut,
-  User, Shield, ToggleLeft, ToggleRight, Layout, GripVertical, AlertCircle
+  MessageSquare, FileBox, CheckSquare, Upload, Download,
+  ToggleLeft, ToggleRight, Layout, GripVertical
 } from 'lucide-react';
 
 export default function LmsEnterprisePortal() {
-  // --- AUTENTICAÇÃO E PERFIL ---
-  const [role, setRole] = useState('professor'); // 'admin', 'professor', 'aluno'
-  const [editMode, setEditMode] = useState(false); // Famoso "Modo de Edição" do Moodle
+  const [role, setRole] = useState('professor');
+  const [editMode, setEditMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentView, setCurrentView] = useState('course_home'); // course_home, grades, attendance, participants
+  const [currentView, setCurrentView] = useState('course_home');
 
-  // --- CONTROLE DE COLAPSÁVEIS (MÓDULOS) ---
   const [expandedModules, setExpandedModules] = useState({
     boas_vindas: true,
     interacoes: true,
@@ -23,10 +21,10 @@ export default function LmsEnterprisePortal() {
 
   const toggleModule = (mod) => setExpandedModules(prev => ({ ...prev, [mod]: !prev[mod] }));
 
-  // --- DADOS MOCKADOS (ESTRUTURA RELACIONAL) ---
+  // Dados adaptados para a sua gestão
   const currentUser = {
-    nome: role === 'aluno' ? 'Ana Silva' : (role === 'professor' ? 'Dra. Renata Gonçalves' : 'Gestão COREMU'),
-    avatar: role === 'aluno' ? 'AS' : (role === 'professor' ? 'RG' : 'GC'),
+    nome: role === 'aluno' ? 'Ana Silva' : (role === 'professor' ? 'Norberto Cimirro' : 'Gestão COREMU'),
+    avatar: role === 'aluno' ? 'AS' : (role === 'professor' ? 'NC' : 'GC'),
   };
 
   const course = {
@@ -42,11 +40,7 @@ export default function LmsEnterprisePortal() {
     { id: 4, nome: "CIMIRRO, Norberto de Sousa", ra: "2026004", status: "Ativo", ga: 9.2, gb: 8.5, gc: 9.0, faltas: [false, false, false] },
   ];
 
-  // ==========================================
-  // COMPONENTES REUTILIZÁVEIS DA INTERFACE
-  // ==========================================
-
-  const Breadcrumbs = () => (
+  const renderBreadcrumbs = () => (
     <div className="flex items-center text-xs text-slate-500 mb-4 bg-white p-3 rounded-md border border-slate-200">
       <span className="hover:text-slate-800 cursor-pointer">Painel</span>
       <ChevronRight className="w-3 h-3 mx-2" />
@@ -62,7 +56,7 @@ export default function LmsEnterprisePortal() {
     </div>
   );
 
-  const SectionBlock = ({ id, title, icon: Icon, children, bgColor = "bg-slate-100/50", borderColor = "border-slate-200" }) => (
+  const renderSectionBlock = (id, title, Icon, children, bgColor = "bg-slate-100/50", borderColor = "border-slate-200") => (
     <div className={`mb-6 rounded-lg border ${borderColor} overflow-hidden shadow-sm bg-white`}>
       <div 
         className={`flex items-center justify-between p-3 cursor-pointer ${bgColor} border-b ${borderColor} hover:bg-slate-100 transition-colors`}
@@ -96,7 +90,7 @@ export default function LmsEnterprisePortal() {
     </div>
   );
 
-  const ResourceItem = ({ icon: Icon, title, desc, typeIconColor = "text-blue-600" }) => (
+  const renderResourceItem = (Icon, title, desc, typeIconColor = "text-blue-600") => (
     <div className="flex items-start justify-between p-4 border-b border-slate-100 hover:bg-slate-50 group">
       <div className="flex items-start gap-3">
         {editMode && <GripVertical className="w-4 h-4 text-slate-300 cursor-move mt-0.5 opacity-0 group-hover:opacity-100" />}
@@ -113,10 +107,6 @@ export default function LmsEnterprisePortal() {
     </div>
   );
 
-  // ==========================================
-  // RENDERIZAÇÃO DAS VISÕES (VIEWS)
-  // ==========================================
-
   const renderCourseHome = () => (
     <div className="animate-fade-in">
       {editMode && (
@@ -125,59 +115,63 @@ export default function LmsEnterprisePortal() {
         </div>
       )}
 
-      {/* BLOCO 1: MURAL DE BOAS VINDAS */}
-      <SectionBlock id="boas_vindas" title="Mural de Boas-vindas" icon={Layout} bgColor="bg-blue-50/50" borderColor="border-blue-100">
-        <div className="p-6 text-sm text-slate-700 leading-relaxed space-y-4 font-medium">
-          <p>Queridos(as), estudantes.</p>
-          <p>Sejam muito bem-vindos ao primeiro semestre do ano letivo (2026/1). É uma alegria iniciarmos juntos a disciplina dedicada à compreensão da atuação do enfermeiro em situações de violência, trauma e morte — contextos que exigem preparo técnico, sensibilidade no cuidado e responsabilidade ética e legal.</p>
-          <p>Que seja um semestre de aprendizado consistente, reflexão madura e crescimento profissional. Estarei ao lado de vocês nessa construção.</p>
-          <p className="pt-2">Com estima,<br/><strong>Prof.ª Dra. Renata Casagrande Gonçalves</strong></p>
-        </div>
-        <div className="border-t border-slate-100">
-          <ResourceItem icon={FileText} title="Plano de Ensino da disciplina" typeIconColor="text-red-500" />
-          <ResourceItem icon={FileText} title="Cronograma do semestre" typeIconColor="text-red-500" />
-          <ResourceItem icon={FileText} title="Contrato Pedagógico" typeIconColor="text-red-500" />
-        </div>
-      </SectionBlock>
-
-      {/* BLOCO 2: INTERAÇÕES */}
-      <SectionBlock id="interacoes" title="Interações" icon={MessageSquare} bgColor="bg-purple-50/50" borderColor="border-purple-100">
-        <ResourceItem icon={MessageSquare} title="Fórum Geral de Notícias e Avisos" typeIconColor="text-purple-600" desc={
-          <div className="bg-slate-800 text-white p-3 rounded mt-2 border-l-4 border-purple-500">
-            <h5 className="font-bold mb-1">Visita Técnica</h5>
-            <p className="text-[11px] text-slate-300">A disciplina aborda os fundamentos teóricos... Visita técnica ao Departamento Médico-Legal (DML).</p>
-            <div className="mt-2 text-[10px] bg-slate-700 inline-block px-2 py-1 rounded">📅 Data: 09/06/2026</div>
+      {renderSectionBlock("boas_vindas", "Mural de Boas-vindas", Layout, (
+        <>
+          <div className="p-6 text-sm text-slate-700 leading-relaxed space-y-4 font-medium">
+            <p>Queridos(as), estudantes.</p>
+            <p>Sejam muito bem-vindos ao primeiro semestre do ano letivo (2026/1). É uma alegria iniciarmos juntos a disciplina dedicada à compreensão da atuação do enfermeiro em situações de violência, trauma e morte — contextos que exigem preparo técnico, sensibilidade no cuidado e responsabilidade ética e legal.</p>
+            <p>Que seja um semestre de aprendizado consistente, reflexão madura e crescimento profissional. Estarei ao lado de vocês nessa construção.</p>
+            <p className="pt-2">Com estima,<br/><strong>Prof.ª Dra. Renata Casagrande Gonçalves</strong></p>
           </div>
-        }/>
-        <ResourceItem icon={MessageSquare} title="Fórum de Dúvidas" typeIconColor="text-amber-500" />
-      </SectionBlock>
-
-      {/* BLOCO 3: MATERIAIS DIDÁTICOS */}
-      <SectionBlock id="materiais" title="Materiais didáticos" icon={Book} bgColor="bg-emerald-50/50" borderColor="border-emerald-100">
-        <ResourceItem icon={FileBox} title="Materiais Complementares (Pasta)" typeIconColor="text-slate-400" />
-        <ResourceItem icon={FileText} title="Aula 2 - 03/03/26" typeIconColor="text-red-500" />
-        <ResourceItem icon={FileText} title="Aula 3 - World Café_debate estruturado e rotativo 10/3/26" typeIconColor="text-red-500" desc={
-          <div className="space-y-2 mt-1">
-            <p>Prezados(as), alunos(as).</p>
-            <p>Encaminho, em anexo, o riquíssimo material elaborado pelo Dr. Pietro, que servirá de base para nossa roda de conversa, a ser realizada no dia <strong>10/03, às 7h30</strong>.</p>
-            <p>Após a leitura minuciosa, peço que cada aluno elabore uma pergunta pertinente ao tema.</p>
+          <div className="border-t border-slate-100">
+            {renderResourceItem(FileText, "Plano de Ensino da disciplina", null, "text-red-500")}
+            {renderResourceItem(FileText, "Cronograma do semestre", null, "text-red-500")}
+            {renderResourceItem(FileText, "Contrato Pedagógico", null, "text-red-500")}
           </div>
-        }/>
-      </SectionBlock>
+        </>
+      ), "bg-blue-50/50", "border-blue-100")}
 
-      {/* BLOCO 4: ATIVIDADES AVALIATIVAS */}
-      <SectionBlock id="atividades" title="Atividades Avaliativas" icon={CheckSquare} bgColor="bg-rose-50/50" borderColor="border-rose-100">
-        <ResourceItem icon={Upload} title="Avaliação GA" typeIconColor="text-rose-500" />
-        <ResourceItem icon={Upload} title="Avaliação GB" typeIconColor="text-rose-500" />
-        <ResourceItem icon={Upload} title="GA 1 - Atividade: 'Debate estruturado e rotativo'" typeIconColor="text-rose-500" desc={
-          <div className="bg-slate-50 p-3 rounded border border-slate-200 mt-2 text-xs">
-            <p className="font-bold text-rose-800 mb-1 flex items-center gap-1">📌 ATIVIDADE - Debate estruturado (Individual)</p>
-            <p><strong>Tema principal:</strong> Fundamentos da Enfermagem Forense e Interface com o Sistema de Justiça</p>
-            <p className="mt-1"><strong>Subtema:</strong> Noções integradas de Direito Penal aplicadas à Enfermagem Forense.</p>
-            <p className="mt-2 font-bold">Data de Entrega: 10/03/2026</p>
-          </div>
-        }/>
-      </SectionBlock>
+      {renderSectionBlock("interacoes", "Interações", MessageSquare, (
+        <>
+          {renderResourceItem(MessageSquare, "Fórum Geral de Notícias e Avisos", (
+            <div className="bg-slate-800 text-white p-3 rounded mt-2 border-l-4 border-purple-500">
+              <h5 className="font-bold mb-1">Visita Técnica</h5>
+              <p className="text-[11px] text-slate-300">A disciplina aborda os fundamentos teóricos... Visita técnica ao Departamento Médico-Legal (DML).</p>
+              <div className="mt-2 text-[10px] bg-slate-700 inline-block px-2 py-1 rounded">📅 Data: 09/06/2026</div>
+            </div>
+          ), "text-purple-600")}
+          {renderResourceItem(MessageSquare, "Fórum de Dúvidas", null, "text-amber-500")}
+        </>
+      ), "bg-purple-50/50", "border-purple-100")}
+
+      {renderSectionBlock("materiais", "Materiais didáticos", Book, (
+        <>
+          {renderResourceItem(FileBox, "Materiais Complementares (Pasta)", null, "text-slate-400")}
+          {renderResourceItem(FileText, "Aula 2 - 03/03/26", null, "text-red-500")}
+          {renderResourceItem(FileText, "Aula 3 - World Café_debate estruturado e rotativo 10/3/26", (
+            <div className="space-y-2 mt-1">
+              <p>Prezados(as), alunos(as).</p>
+              <p>Encaminho, em anexo, o riquíssimo material elaborado pelo Dr. Pietro, que servirá de base para nossa roda de conversa, a ser realizada no dia <strong>10/03, às 7h30</strong>.</p>
+              <p>Após a leitura minuciosa, peço que cada aluno elabore uma pergunta pertinente ao tema.</p>
+            </div>
+          ), "text-red-500")}
+        </>
+      ), "bg-emerald-50/50", "border-emerald-100")}
+
+      {renderSectionBlock("atividades", "Atividades Avaliativas", CheckSquare, (
+        <>
+          {renderResourceItem(Upload, "Avaliação GA", null, "text-rose-500")}
+          {renderResourceItem(Upload, "Avaliação GB", null, "text-rose-500")}
+          {renderResourceItem(Upload, "GA 1 - Atividade: 'Debate estruturado e rotativo'", (
+            <div className="bg-slate-50 p-3 rounded border border-slate-200 mt-2 text-xs">
+              <p className="font-bold text-rose-800 mb-1 flex items-center gap-1">📌 ATIVIDADE - Debate estruturado (Individual)</p>
+              <p><strong>Tema principal:</strong> Fundamentos da Enfermagem Forense e Interface com o Sistema de Justiça</p>
+              <p className="mt-1"><strong>Subtema:</strong> Noções integradas de Direito Penal aplicadas à Enfermagem Forense.</p>
+              <p className="mt-2 font-bold">Data de Entrega: 10/03/2026</p>
+            </div>
+          ), "text-rose-500")}
+        </>
+      ), "bg-rose-50/50", "border-rose-100")}
     </div>
   );
 
@@ -217,13 +211,13 @@ export default function LmsEnterprisePortal() {
                     </span>
                   </td>
                   <td className="p-3 border-r border-slate-200 text-center">
-                    {editMode ? <input type="text" defaultValue={aluno.ga} className="w-12 text-center border p-1 rounded" /> : aluno.ga}
+                    {editMode ? <input type="number" step="0.1" defaultValue={aluno.ga} className="w-12 text-center border p-1 rounded" /> : aluno.ga}
                   </td>
                   <td className="p-3 border-r border-slate-200 text-center">
-                    {editMode ? <input type="text" defaultValue={aluno.gb} className="w-12 text-center border p-1 rounded" /> : aluno.gb}
+                    {editMode ? <input type="number" step="0.1" defaultValue={aluno.gb} className="w-12 text-center border p-1 rounded" /> : aluno.gb}
                   </td>
                   <td className="p-3 border-r border-slate-200 text-center">
-                    {editMode ? <input type="text" defaultValue={aluno.gc} className="w-12 text-center border p-1 rounded" /> : aluno.gc}
+                    {editMode ? <input type="number" step="0.1" defaultValue={aluno.gc} className="w-12 text-center border p-1 rounded" /> : aluno.gc}
                   </td>
                   <td className="p-3 border-r border-slate-200 text-center font-black bg-slate-100">{total}</td>
                   <td className="p-3 text-slate-500 italic">
@@ -267,7 +261,7 @@ export default function LmsEnterprisePortal() {
                 <td className="p-2 border border-slate-200 text-center font-bold">{aluno.faltas.filter(f => f).length * 2}</td>
                 {aluno.faltas.map((falta, i) => (
                   <td key={i} className={`p-2 border border-slate-200 text-center ${falta ? 'bg-slate-800' : 'bg-emerald-700'}`}>
-                    <input type="checkbox" checked={!falta} readOnly={!editMode} className="w-4 h-4 rounded text-white" />
+                    <input type="checkbox" defaultChecked={!falta} disabled={!editMode} className="w-4 h-4 rounded text-white" />
                   </td>
                 ))}
               </tr>
@@ -278,14 +272,10 @@ export default function LmsEnterprisePortal() {
     </div>
   );
 
-  // ==========================================
-  // ESTRUTURA PRINCIPAL (SHELL DO LMS)
-  // ==========================================
-
   return (
     <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-800 overflow-hidden">
       
-      {/* 1. SIDEBAR (MENU LATERAL FIXO) */}
+      {/* SIDEBAR */}
       <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 text-slate-300 transition-all duration-300 flex flex-col flex-shrink-0 shadow-2xl z-20`}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
           {sidebarOpen && <span className="font-black text-white text-lg tracking-tight">LMS<span className="text-teal-500">Portal</span></span>}
@@ -336,7 +326,6 @@ export default function LmsEnterprisePortal() {
           </nav>
         </div>
 
-        {/* Simulador de Acesso no final da Sidebar */}
         {sidebarOpen && (
           <div className="p-4 bg-slate-950 border-t border-slate-800">
             <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Simulador de Acesso</p>
@@ -349,10 +338,8 @@ export default function LmsEnterprisePortal() {
         )}
       </aside>
 
-      {/* 2. ÁREA PRINCIPAL (HEADER + CONTEÚDO) */}
+      {/* ÁREA PRINCIPAL */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
-        {/* HEADER SUPERIOR */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shadow-sm z-10">
           <div className="flex items-center gap-4 flex-1">
             <div className="hidden sm:flex items-center text-sm font-semibold text-slate-600 gap-6">
@@ -386,11 +373,8 @@ export default function LmsEnterprisePortal() {
           </div>
         </header>
 
-        {/* CONTEÚDO SCROLLÁVEL DA PÁGINA */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-5xl mx-auto">
-            
-            {/* Título da Disciplina e Controles Globais */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
@@ -399,7 +383,6 @@ export default function LmsEnterprisePortal() {
                 <p className="text-sm text-slate-500 mt-1 font-medium">{course.codigo} • Curso de Especialização / Residência</p>
               </div>
               
-              {/* BOTÃO "MODO DE EDIÇÃO" IGUAL AO MOODLE */}
               {(role === 'professor' || role === 'admin') && (
                 <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm">
                   <span className="text-xs font-bold text-slate-600 px-2 hidden sm:inline">Modo de edição</span>
@@ -414,9 +397,8 @@ export default function LmsEnterprisePortal() {
               )}
             </div>
 
-            <Breadcrumbs />
+            {renderBreadcrumbs()}
 
-            {/* BARRA DE PROGRESSO DO ALUNO */}
             {role === 'aluno' && currentView === 'course_home' && (
               <div className="bg-white p-4 rounded-lg border border-slate-200 mb-6 flex items-center justify-between shadow-sm">
                 <div className="flex-1 mr-6">
@@ -434,7 +416,6 @@ export default function LmsEnterprisePortal() {
               </div>
             )}
 
-            {/* RENDERIZAÇÃO CONDICIONAL DAS VIEWS */}
             {currentView === 'course_home' && renderCourseHome()}
             {currentView === 'grades' && renderGradebook()}
             {currentView === 'attendance' && renderAttendance()}
