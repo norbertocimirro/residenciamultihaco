@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Menu, Bell, Search, Home, Book, Calendar, Users, BarChart, 
-  ChevronDown, ChevronRight, Edit2, Plus, MoreVertical, FileText, 
+  ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, FileBox, CheckSquare, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2
 } from 'lucide-react';
@@ -280,7 +280,7 @@ export default function LmsEnterprisePortal() {
             {currentView === 'course_home' && (
               <div className="animate-fade-in">
                 
-                {/* Botão de adicionar nova seção (Aparece apenas no topo quando editMode está ativo) */}
+                {/* Botão de adicionar nova seção */}
                 {editMode && (
                   <div onClick={addSection} className="mb-6 border border-dashed border-teal-400 rounded-lg p-4 text-center bg-teal-50/50 hover:bg-teal-100 cursor-pointer transition text-teal-700 font-bold text-sm flex items-center justify-center gap-2 shadow-sm">
                     <Plus className="w-5 h-5"/> Adicionar novo Tópico / Módulo
@@ -298,7 +298,7 @@ export default function LmsEnterprisePortal() {
                           {expandedModules[section.id] !== false ? <ChevronDown className="w-5 h-5 text-slate-500"/> : <ChevronRight className="w-5 h-5 text-slate-500"/>}
                         </button>
                         
-                        {/* Se estiver no modo edição, o título vira um input */}
+                        {/* Input de Edição */}
                         {editMode ? (
                           <input 
                             type="text" 
@@ -311,7 +311,7 @@ export default function LmsEnterprisePortal() {
                         )}
                       </div>
                       
-                      {/* Botão de excluir seção */}
+                      {/* Excluir seção */}
                       {editMode && (
                         <button onClick={() => deleteSection(section.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-2">
                           <Trash2 className="w-4 h-4" />
@@ -330,7 +330,7 @@ export default function LmsEnterprisePortal() {
                                 {editMode && <GripVertical className="w-4 h-4 text-slate-300 cursor-move" />}
                                 <IconComponent className={`w-5 h-5 ${item.color} flex-shrink-0`} />
                                 
-                                {/* Se estiver no modo edição, o título do item vira um input */}
+                                {/* Input de Edição de Item */}
                                 {editMode ? (
                                   <input 
                                     type="text" 
@@ -343,7 +343,7 @@ export default function LmsEnterprisePortal() {
                                 )}
                               </div>
                               
-                              {/* Botão de excluir item */}
+                              {/* Excluir item */}
                               {editMode && (
                                 <button onClick={() => deleteItem(section.id, item.id)} className="p-1 text-slate-300 hover:text-red-500 transition-colors ml-2">
                                   <Trash2 className="w-4 h-4" />
@@ -353,7 +353,7 @@ export default function LmsEnterprisePortal() {
                           );
                         })}
                         
-                        {/* Botão de adicionar item no rodapé da seção */}
+                        {/* Botão de adicionar item */}
                         {editMode && (
                           <div className="p-3 border-t border-dashed border-slate-300 bg-slate-50 flex justify-end">
                             <button onClick={() => addItem(section.id)} className="flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-3 py-1.5 rounded-md border border-teal-100">
@@ -375,6 +375,9 @@ export default function LmsEnterprisePortal() {
                     <h3 className="font-bold text-lg text-slate-800">Relatório de Notas Ativo</h3>
                     <p className="text-xs text-slate-500">As notas digitadas aqui são calculadas automaticamente e salvas em tempo real.</p>
                   </div>
+                  <button className="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2 hover:bg-slate-300">
+                    <Download className="w-4 h-4"/> Exportar CSV
+                  </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
@@ -392,13 +395,12 @@ export default function LmsEnterprisePortal() {
                     <tbody className="divide-y divide-slate-200">
                       {students.map((aluno, idx) => {
                         const total = (aluno.ga + aluno.gb + aluno.gc).toFixed(2);
-                        const isApproved = total >= 14 || (aluno.gc > 0 && total >= 15); // Lógica acadêmica genérica
+                        const isApproved = total >= 14 || (aluno.gc > 0 && total >= 15);
 
                         return (
                           <tr key={aluno.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="p-3 font-bold text-slate-700 border-r border-slate-200">{aluno.nome}</td>
                             
-                            {/* Inputs controlados pelas funções de estado */}
                             <td className="p-2 border-r border-slate-200 text-center">
                               <input type="number" step="0.1" value={aluno.ga} disabled={!editMode} onChange={(e) => updateGrade(aluno.id, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold bg-white disabled:bg-slate-100 focus:ring-2 focus:ring-teal-500 outline-none" />
                             </td>
