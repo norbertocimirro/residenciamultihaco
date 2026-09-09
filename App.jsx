@@ -35,7 +35,7 @@ try {
 }
 
 // ==========================================
-// 2. ESCUDO CONTRA TELA BRANCA (ERROR BOUNDARY)
+// 2. ESCUDO CONTRA TELA BRANCA
 // ==========================================
 class ErrorBoundary extends React.Component {
   constructor(props) { 
@@ -122,9 +122,7 @@ const quillModules = {
 // ==========================================
 function LmsEnterprisePortal() {
   
-  // ========================================
   // ESTADOS DO BANCO DE DADOS
-  // ========================================
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC', email: 'gestao@haco.mil.br', phone: '', bio: 'Gestão do Programa de Residência.', showContactPublicly: false },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC', email: 'norberto@haco.mil.br', phone: '', bio: 'Enfermeiro no Hospital de Aeronáutica de Canoas. Pós-graduado em Gestão de Saúde, Auditoria e Enfermagem Aeroespacial.', showContactPublicly: true },
@@ -146,7 +144,7 @@ function LmsEnterprisePortal() {
   const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums_v3', {});
   const [dbExams, setDbExams, examsLoaded] = useFirestoreDB('tb_exams_v1', {});
 
-  // Blindagem de Variáveis
+  // BLINDAGEM DE VARIÁVEIS
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
@@ -155,9 +153,7 @@ function LmsEnterprisePortal() {
   const forums = typeof dbForums === 'object' && dbForums !== null ? dbForums : {};
   const exams = typeof dbExams === 'object' && dbExams !== null ? dbExams : {};
 
-  // ========================================
   // ESTADOS DA INTERFACE E SESSÃO
-  // ========================================
   const [activeUserId, setActiveUserId] = useState('admin1');
   const currentUser = systemUsers[activeUserId] || systemUsers['admin1'] || { id: 'admin1', nome: 'Gestão', role: 'admin', avatar: 'GC' };
   const role = currentUser?.role || 'admin';
@@ -171,9 +167,7 @@ function LmsEnterprisePortal() {
   const hasEditPermission = role === 'admin' || role === 'professor';
   const isEditing = editMode && hasEditPermission;
 
-  // ========================================
   // ESTADOS DOS FORMULÁRIOS E MODAIS
-  // ========================================
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
@@ -191,16 +185,13 @@ function LmsEnterprisePortal() {
   const [newCourseProfId, setNewCourseProfId] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
 
-  // ========================================
   // ESTADOS DOS MÓDULOS AVA E PERFIL
-  // ========================================
   const [readingItem, setReadingItem] = useState(null); 
   const [activeForumItem, setActiveForumItem] = useState(null); 
   const [activeTopicId, setActiveTopicId] = useState(null); 
   const [activeExamItem, setActiveExamItem] = useState(null); 
   const [localQuestions, setLocalQuestions] = useState([]);
   
-  // Perfil do Usuário
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [editProfileData, setEditProfileData] = useState(null);
 
@@ -219,9 +210,7 @@ function LmsEnterprisePortal() {
     );
   }
 
-  // ========================================
   // LÓGICA DE NAVEGAÇÃO
-  // ========================================
   const visibleCourses = courses.filter(c => {
     if (!c) return false;
     if (role === 'admin') return true;
@@ -242,9 +231,7 @@ function LmsEnterprisePortal() {
     setCurrentView(newRole === 'admin' ? 'admin_dashboard' : 'user_home'); 
   };
 
-  // ========================================
-  // GESTÃO DE USUÁRIOS
-  // ========================================
+  // FUNÇÕES DE GESTÃO DE USUÁRIOS
   const handleCreateUser = (e) => {
     e.preventDefault();
     if (!newUserName) return;
@@ -285,11 +272,12 @@ function LmsEnterprisePortal() {
     setEditingUserName('');
   };
 
-  const handleCancelEditUser = () => { setEditingUserId(null); setEditingUserName(''); };
+  const handleCancelEditUser = () => {
+    setEditingUserId(null);
+    setEditingUserName('');
+  };
 
-  // ========================================
-  // GESTÃO DE DISCIPLINAS
-  // ========================================
+  // FUNÇÕES DE GESTÃO DE DISCIPLINAS
   const handleCreateCourse = (e) => {
     e.preventDefault();
     if (!newCourseCode || !newCourseName || !newCourseProfId) return;
@@ -330,9 +318,7 @@ function LmsEnterprisePortal() {
     }
   };
 
-  // ========================================
   // FUNÇÕES DE CONTEÚDO E UPLOAD
-  // ========================================
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
 
@@ -375,8 +361,7 @@ function LmsEnterprisePortal() {
         finalUrl = await getDownloadURL(fileRef);
       } catch (err) {
         alert("Erro no Upload! Verifique as regras do Firebase Storage na aba Rules.");
-        setIsUploading(false);
-        return;
+        setIsUploading(false); return;
       }
       setIsUploading(false);
     }
@@ -386,16 +371,19 @@ function LmsEnterprisePortal() {
 
     updateContent(activeContent.map(sec => {
       if (sec?.id === activeSectionForNewItem) {
-        return { ...sec, items: [...(sec.items || []), { id: finalItemId, title: newItemTitle, type: newItemType, color: color, url: finalUrl, fileName: finalFileName, textContent: newItemType === 'TextContent' ? newItemTextContent : null }] };
+        return {
+          ...sec,
+          items: [...(sec.items || []), { 
+            id: finalItemId, title: newItemTitle, type: newItemType, color: color, url: finalUrl, fileName: finalFileName, textContent: newItemType === 'TextContent' ? newItemTextContent : null
+          }]
+        };
       }
       return sec;
     }));
     setActiveSectionForNewItem(null); 
   };
 
-  // ========================================
   // NOTAS E FREQUÊNCIA
-  // ========================================
   const updateGrade = (studentId, field, value) => {
     const updatedStudents = (courseStudents[activeCourseId] || []).map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s);
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
@@ -457,14 +445,18 @@ function LmsEnterprisePortal() {
     }
   };
 
+  // Variáveis Derivadas Prontas para Renderização
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
   const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
   const currentAttendanceCols = attendanceCols[activeCourseId] || [];
   const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
-  const studentsInCourse = rawActiveStudents.map(enrollment => ({ ...enrollment, nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído' }));
+
+  const studentsInCourse = rawActiveStudents.map(enrollment => ({
+    ...enrollment, nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído'
+  }));
+
   const visibleGradesAndAttendance = role === 'aluno' ? studentsInCourse.filter(s => s.studentId === currentUser.id) : studentsInCourse;
   const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id));
-
 
   // ==========================================
   // RENDERIZAÇÃO: PERFIL DE USUÁRIO
@@ -487,13 +479,7 @@ function LmsEnterprisePortal() {
 
     const saveProfile = (e) => {
       e.preventDefault();
-      setDbUsers({
-        ...systemUsers,
-        [viewingProfileId]: {
-          ...profileUser,
-          ...editProfileData
-        }
-      });
+      setDbUsers({ ...systemUsers, [viewingProfileId]: { ...profileUser, ...editProfileData } });
       setEditProfileData(null);
     };
 
@@ -501,7 +487,6 @@ function LmsEnterprisePortal() {
       <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
           
-          {/* Header do Perfil (Capa) */}
           <div className="bg-gradient-to-r from-teal-800 to-teal-600 p-8 pt-10 text-white relative flex flex-col items-center shrink-0">
             <button onClick={() => {setViewingProfileId(null); setEditProfileData(null);}} className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"><X className="w-5 h-5"/></button>
             <div className="w-24 h-24 bg-white text-teal-800 rounded-full flex items-center justify-center text-4xl font-black shadow-lg border-4 border-white/20 mb-4">
@@ -595,7 +580,6 @@ function LmsEnterprisePortal() {
     );
   };
 
-
   // ==========================================
   // RENDERIZAÇÃO: FÓRUM PROFISSIONAL (PHPBB)
   // ==========================================
@@ -648,8 +632,6 @@ function LmsEnterprisePortal() {
           
           <div className="flex-1 flex overflow-hidden">
             {!activeTopicId ? (
-              
-              /* LISTA DE TÓPICOS */
               <div className="flex-1 p-8 overflow-y-auto space-y-8">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg">
@@ -687,8 +669,6 @@ function LmsEnterprisePortal() {
                 </div>
               </div>
             ) : (
-              
-              /* VISÃO DO TÓPICO E RESPOSTAS */
               <div className="flex-1 flex flex-col h-full bg-slate-50">
                 <div className="p-4 border-b border-slate-200 bg-white shrink-0 flex items-center gap-4 shadow-sm">
                   <button onClick={() => setActiveTopicId(null)} className="p-2 bg-slate-100 text-slate-600 hover:bg-purple-100 hover:text-purple-700 rounded-lg font-bold transition flex items-center gap-1">
@@ -698,8 +678,6 @@ function LmsEnterprisePortal() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6">
-                  
-                  {/* Post Original */}
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-purple-600"></div>
                     <div className="flex items-center gap-4 mb-4 border-b border-slate-100 pb-4">
@@ -712,7 +690,6 @@ function LmsEnterprisePortal() {
                     <p className="text-slate-700 text-base whitespace-pre-wrap leading-relaxed">{currentTopicData?.description}</p>
                   </div>
 
-                  {/* Respostas */}
                   <div className="space-y-4 pl-4 md:pl-12 border-l-2 border-slate-200">
                     {(currentTopicData?.replies || []).map((reply, idx) => (
                       <div key={reply.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative">
@@ -733,13 +710,10 @@ function LmsEnterprisePortal() {
                   </div>
                 </div>
 
-                {/* Área para Responder */}
                 <div className="p-6 bg-white border-t border-slate-200 shrink-0">
                   <form onSubmit={handleReplyTopic} className="flex gap-4">
                     <textarea name="reply" required placeholder="Escreva sua resposta para o tópico..." className="flex-1 border border-slate-300 p-4 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none h-20 bg-slate-50 focus:bg-white transition-colors"></textarea>
-                    <button type="submit" className="bg-purple-700 text-white font-bold px-8 rounded-xl hover:bg-purple-800 transition flex items-center justify-center gap-2 shadow-md">
-                      <Send className="w-4 h-4"/> Responder
-                    </button>
+                    <button type="submit" className="bg-purple-700 text-white font-bold px-8 rounded-xl hover:bg-purple-800 transition flex items-center justify-center gap-2 shadow-md"><Send className="w-4 h-4"/> Responder</button>
                   </form>
                 </div>
               </div>
@@ -756,7 +730,6 @@ function LmsEnterprisePortal() {
   const renderExamModal = () => {
     const examData = exams[activeExamItem.id] || { questions: [], submissions: {} };
     
-    // As funções que atualizam a prova usam spread operator seguro na matriz correta.
     const handleAddQuestion = () => {
       const newQuestion = { id: `q_${Date.now()}_${Math.random()}`, title: 'Nova Pergunta', options: ['Opção 1', 'Opção 2', 'Opção 3', 'Opção 4'], correctIndex: 0 };
       setLocalQuestions([...localQuestions, newQuestion]);
@@ -790,7 +763,6 @@ function LmsEnterprisePortal() {
 
     const isInstructor = role === 'admin' || role === 'professor';
 
-    // TELA DE CONSTRUÇÃO (SOMENTE PROFESSOR/ADMIN)
     if (isInstructor) {
       return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
@@ -808,8 +780,6 @@ function LmsEnterprisePortal() {
             </div>
             
             <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8">
-              
-              {/* QUESTÕES */}
               {localQuestions.map((q, qIndex) => (
                 <div key={q.id} className="bg-white p-8 border border-slate-200 rounded-2xl shadow-sm relative">
                   <button onClick={() => setLocalQuestions(localQuestions.filter((_, i) => i !== qIndex))} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5"/></button>
@@ -834,10 +804,8 @@ function LmsEnterprisePortal() {
                 <Plus className="w-6 h-6"/> Adicionar Nova Questão
               </button>
 
-              {/* PAINEL DE NOTAS AUTOMÁTICAS PARA O PROFESSOR */}
               <div className="mt-12 border-t-2 border-dashed border-slate-300 pt-8">
                 <h3 className="font-black text-xl text-slate-800 mb-6 flex items-center gap-2"><BarChart className="w-6 h-6 text-rose-600"/> Resultados dos Residentes</h3>
-                
                 {Object.keys(examData.submissions || {}).length === 0 ? (
                   <p className="text-slate-500 bg-white p-6 rounded-xl border border-slate-200">Nenhuma prova foi entregue pelos residentes até o momento.</p>
                 ) : (
@@ -873,7 +841,6 @@ function LmsEnterprisePortal() {
       );
     }
 
-    // TELA DE FAZER A PROVA (VISÃO DE QUEM ESTÁ RESPONDENDO - ALUNO)
     const mySubmission = examData.submissions[currentUser.id];
     
     const handleSumbitExam = (e) => {
@@ -918,9 +885,7 @@ function LmsEnterprisePortal() {
           </div>
           
           <div className="flex-1 overflow-y-auto p-6 sm:p-10">
-            
             {mySubmission ? (
-              // SE O ALUNO JÁ FEZ A PROVA
               <div className="text-center bg-white p-12 rounded-3xl border border-slate-200 shadow-sm max-w-md mx-auto mt-10">
                 <CheckCircle className="w-20 h-20 text-emerald-500 mx-auto mb-6"/>
                 <h3 className="text-2xl font-black text-slate-800">Avaliação Concluída</h3>
@@ -931,8 +896,6 @@ function LmsEnterprisePortal() {
                 </div>
               </div>
             ) : (
-              
-              // SE O ALUNO AINDA VAI FAZER A PROVA
               <form onSubmit={handleSumbitExam} className="space-y-8 max-w-3xl mx-auto pb-10">
                 {examData.questions.length === 0 ? (
                   <p className="text-center text-slate-500 bg-white p-8 rounded-xl border border-slate-200">
@@ -976,10 +939,126 @@ function LmsEnterprisePortal() {
     );
   };
 
+  // ==========================================
+  // RENDERIZAÇÃO: PARTICIPANTES
+  // ==========================================
+  const renderParticipants = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-blue-50 text-blue-700 rounded-xl"><Users className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Participantes da Disciplina</h2>
+          <p className="text-sm text-slate-500 mt-1">Visualize e gerencie os residentes matriculados nesta turma.</p>
+        </div>
+      </div>
+
+      {isEditing && (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm print:hidden">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-teal-600"/> Matricular Novo Residente nesta Turma</h3>
+          <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="flex gap-3 max-w-lg">
+            <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border border-slate-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+              <option value="">Selecione um residente disponível no sistema...</option>
+              {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+            <button type="submit" className="bg-teal-800 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2 shadow-sm">
+              <Plus className="w-4 h-4"/> Matricular
+            </button>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-100 text-slate-600 font-bold border-b">
+            <tr>
+              <th className="p-5 text-slate-500 uppercase tracking-wider text-xs">Nome do Aluno Matriculado</th>
+              <th className="p-5 text-center text-slate-500 uppercase tracking-wider text-xs">Situação</th>
+              {isEditing && <th className="p-5 text-right print:hidden text-slate-500 uppercase tracking-wider text-xs">Ação</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {studentsInCourse.length === 0 ? (
+              <tr>
+                <td colSpan={isEditing ? 3 : 2} className="p-8 text-center text-slate-500">
+                  <div className="flex flex-col items-center justify-center">
+                    <Users className="w-10 h-10 text-slate-300 mb-3" />
+                    <span>Nenhum aluno matriculado nesta disciplina no momento.</span>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              studentsInCourse.map(s => {
+                if(!s) return null;
+                return (
+                  <tr key={s.studentId} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-5 font-bold text-slate-800 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 border border-slate-300 cursor-pointer hover:border-teal-500 transition" onClick={() => setViewingProfileId(s.studentId)}>
+                        {systemUsers[s.studentId]?.avatar || '??'}
+                      </div>
+                      <span className="text-base cursor-pointer hover:text-teal-700 transition" onClick={() => setViewingProfileId(s.studentId)}>{s.nome}</span>
+                    </td>
+                    <td className="p-5 text-center">
+                      <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
+                        Matriculado Ativo
+                      </span>
+                    </td>
+                    {isEditing && (
+                      <td className="p-5 text-right print:hidden">
+                        <button onClick={() => deleteStudent(s.studentId)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Desmatricular Aluno">
+                          <Trash2 className="w-5 h-5 inline"/>
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   // ==========================================
   // RENDERIZAÇÕES PRINCIPAIS (Telas do Dashboard)
   // ==========================================
+  const renderUserHome = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Home className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Olá, {currentUser.nome}</h2>
+          <p className="text-sm text-slate-500 mt-1">Bem-vindo ao Portal COREMU. Selecione uma disciplina abaixo para acessar a sala de aula virtual.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {visibleCourses.length === 0 ? (
+          <div className="col-span-full text-center p-12 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-slate-500">
+            <Book className="w-12 h-12 mx-auto mb-3 text-slate-300"/>
+            <p className="font-bold text-lg text-slate-700">Nenhuma disciplina vinculada</p>
+            <p className="text-sm mt-1">Você ainda não possui turmas ou matriculas no semestre atual.</p>
+          </div>
+        ) : (
+          visibleCourses.map(c => {
+            if(!c) return null;
+            return (
+              <div key={c.id} onClick={() => { setActiveCourseId(c.id); setCurrentView('course_home'); }} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition cursor-pointer flex flex-col justify-between h-full group">
+                <div>
+                  <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
+                  <h3 className="font-bold text-slate-800 mt-3 group-hover:text-teal-700 transition leading-tight">{c.nome}</h3>
+                  <p className="text-xs text-slate-500 mt-2">Professor Titular: {systemUsers[c.professorId]?.nome || 'Não definido'}</p>
+                </div>
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-teal-700 text-sm font-bold">
+                  Acessar Sala <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 
   const renderAdminDashboard = () => (
     <div className="space-y-6 animate-fade-in">
@@ -1064,7 +1143,6 @@ function LmsEnterprisePortal() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* CADASTRAR USUÁRIO */}
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-purple-600"/> Novo Usuário</h3>
           <form onSubmit={handleCreateUser} className="space-y-4">
@@ -1086,7 +1164,6 @@ function LmsEnterprisePortal() {
           </form>
         </div>
         
-        {/* TABELA DE USUÁRIOS */}
         <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-slate-600"/> Tabela de Usuários Ativos</h3>
           <div className="overflow-x-auto">
@@ -1101,9 +1178,7 @@ function LmsEnterprisePortal() {
               <tbody className="divide-y divide-slate-100">
                 {Object.values(systemUsers).map(u => {
                   if(!u) return null;
-                  
                   const isEditingThisUser = editingUserId === u.id;
-                  
                   return (
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4 font-bold text-slate-800">
@@ -1159,7 +1234,7 @@ function LmsEnterprisePortal() {
     </div>
   );
 
-  // ESTRUTURA PRINCIPAL DO HTML (Layout)
+  // ESTRUTURA PRINCIPAL DO HTML (Layout Shell)
   return (
     <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-800 overflow-hidden print:bg-white print:h-auto print:overflow-visible">
       
@@ -1175,7 +1250,6 @@ function LmsEnterprisePortal() {
         <div className="flex-1 overflow-y-auto py-6 no-scrollbar">
           <nav className="space-y-2 px-4">
             
-            {/* LINKS DO ADMIN E DIRETÓRIO */}
             {role === 'admin' && (
               <>
                 <button onClick={() => {setCurrentView('admin_dashboard'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-sm font-bold transition-colors ${currentView === 'admin_dashboard' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
@@ -1190,7 +1264,6 @@ function LmsEnterprisePortal() {
               </>
             )}
 
-            {/* LINK HOME (PROF E ALUNO) */}
             {(role === 'professor' || role === 'aluno') && (
               <button onClick={() => {setCurrentView('user_home'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-sm font-bold transition-colors ${currentView === 'user_home' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
                 <Home className="w-5 h-5 flex-shrink-0" />
@@ -1198,7 +1271,6 @@ function LmsEnterprisePortal() {
               </button>
             )}
 
-            {/* LISTAGEM DE DISCIPLINAS NA BARRA LATERAL */}
             {sidebarOpen && <div className="mt-8 mb-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Minhas Disciplinas Ativas</div>}
             
             {visibleCourses.length === 0 ? (
@@ -1215,7 +1287,6 @@ function LmsEnterprisePortal() {
                       {sidebarOpen && <span className="truncate block w-full text-left">{c.nome}</span>}
                     </button>
                     
-                    {/* SUBMENU DA DISCIPLINA ATIVA */}
                     {isCourseActive && sidebarOpen && (
                       <div className="ml-5 pl-4 border-l-2 border-slate-700 mt-2 space-y-1 mb-6">
                         <button onClick={() => setCurrentView('course_home')} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-bold transition-colors ${currentView === 'course_home' ? 'text-teal-400 bg-slate-800 shadow-sm' : 'hover:bg-slate-800 text-slate-400'}`}>
@@ -1239,7 +1310,6 @@ function LmsEnterprisePortal() {
           </nav>
         </div>
 
-        {/* ÁREA DE TESTE: TROCA DE USUÁRIO RÁPIDA */}
         {sidebarOpen && (
           <div className="p-6 bg-slate-950 border-t border-slate-800 z-50">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2"><ToggleLeft className="w-4 h-4"/> Simular Perfil de Acesso</p>
@@ -1253,10 +1323,9 @@ function LmsEnterprisePortal() {
         )}
       </aside>
 
-      {/* ÁREA CENTRAL E DIREITA DA PLATAFORMA */}
+      {/* ÁREA CENTRAL DA PLATAFORMA */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative print:overflow-visible">
         
-        {/* CABEÇALHO SUPERIOR (HEADER) */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-10 shadow-sm z-10 print:hidden shrink-0">
           <div className="flex items-center gap-4 flex-1">
             <div className="hidden sm:flex items-center text-sm font-semibold text-slate-600 gap-6">
@@ -1276,7 +1345,6 @@ function LmsEnterprisePortal() {
           </div>
         </header>
 
-        {/* MIOLO CENTRAL: ONDE AS TELAS SÃO RENDERIZADAS */}
         <main className="flex-1 overflow-y-auto p-6 md:p-10 bg-[#f8f9fa] print:bg-white print:p-0 print:overflow-visible relative">
           <div className="max-w-6xl mx-auto pb-20">
             
@@ -1290,14 +1358,12 @@ function LmsEnterprisePortal() {
               <>
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-6 mt-4">
                   <div className="flex-1">
-                    {/* TÍTULO DA DISCIPLINA (Editável se professor/admin e Modo Edição Ativo) */}
                     {isEditing ? (
                       <input type="text" value={activeCourseObj?.nome || ''} onChange={(e) => updateCourseDetails('nome', e.target.value)} placeholder="Digite o Nome da Disciplina aqui..." className="w-full text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight bg-transparent border-b-2 border-dashed border-slate-300 focus:border-teal-500 focus:outline-none mb-3 pb-2 transition-colors" />
                     ) : (
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-3">{activeCourseObj?.nome}</h1>
                     )}
                     
-                    {/* DADOS SECUNDÁRIOS DA DISCIPLINA */}
                     {isEditing ? (
                       <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm w-fit">
                         <input type="text" value={activeCourseObj?.codigo || ''} onChange={(e) => updateCourseDetails('codigo', e.target.value)} placeholder="Cód: RMAB001" className="w-32 text-sm text-teal-700 font-bold bg-teal-50 px-3 py-1.5 rounded-lg border border-dashed border-teal-300 focus:border-teal-500 focus:outline-none transition-colors" />
@@ -1313,7 +1379,6 @@ function LmsEnterprisePortal() {
                     )}
                   </div>
                   
-                  {/* O BOTÃO QUE ATIVA O MODO DE EDIÇÃO (Visível apenas se tem permissão) */}
                   {hasEditPermission && (
                     <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-xl shadow-sm shrink-0 print:hidden">
                       <span className="text-xs font-bold text-slate-600 px-3 hidden sm:inline uppercase tracking-widest">Modo de Edição</span>
@@ -1325,7 +1390,6 @@ function LmsEnterprisePortal() {
                   )}
                 </div>
 
-                {/* CAIXA DE ALERTA DO MODO DE EDIÇÃO */}
                 {hasEditPermission && editMode && (
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 p-5 rounded-2xl mb-8 text-sm flex gap-4 print:hidden shadow-sm items-center">
                     <Shield className="w-8 h-8 text-amber-500 shrink-0"/>
@@ -1333,7 +1397,6 @@ function LmsEnterprisePortal() {
                   </div>
                 )}
 
-                {/* BREADCRUMB (Navegação Superior) */}
                 <div className="flex items-center text-xs text-slate-500 mb-8 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm print:hidden">
                   <span className="hover:text-slate-800 font-medium">Portal COREMU</span>
                   <ChevronRight className="w-4 h-4 mx-3 text-slate-300" />
@@ -1353,7 +1416,6 @@ function LmsEnterprisePortal() {
               </>
             )}
             
-            {/* RENDERIZAÇÃO DOS MODAIS EM CAMADA SUPERIOR */}
             {viewingProfileId && renderProfileModal()}
             {activeForumItem && renderForumModal()}
             {activeExamItem && renderExamModal()}
@@ -1365,7 +1427,6 @@ function LmsEnterprisePortal() {
   );
 }
 
-// A EXPORTAÇÃO FINAL PASSANDO PELO ESCUDO DE ERROS
 export default function App() {
   return (
     <ErrorBoundary>
