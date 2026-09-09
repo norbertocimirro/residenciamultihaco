@@ -6,11 +6,11 @@ import {
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check, Loader2
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check
 } from 'lucide-react';
 
 // ==========================================
-// ⚠️ INSIRA SUAS CREDENCIAIS DO FIREBASE AQUI
+// CREDENCIAIS REAIS DO FIREBASE COREMU
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyAwRjc9QUmF4quqYOvt-Z187Mlv5rQnHXE",
@@ -49,12 +49,9 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="p-8 bg-red-50 h-screen overflow-auto">
           <h1 className="text-2xl font-bold text-red-700 mb-4">🚨 Ocorreu um Erro no Sistema</h1>
-          <p className="text-slate-700 mb-4">A tela branca foi interceptada. Por favor, tire um print do erro abaixo para que eu possa consertar a linha exata:</p>
+          <p className="text-slate-700 mb-4">Tire um print do erro abaixo para correção:</p>
           <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">
             {this.state.error?.toString()}
-          </pre>
-          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-slate-600 overflow-x-auto mt-4 whitespace-pre-wrap">
-            {this.state.info?.componentStack}
           </pre>
         </div>
       );
@@ -64,24 +61,21 @@ class ErrorBoundary extends React.Component {
 }
 
 // ==========================================
-// HOOK BLINDADO DE SINCRONIZAÇÃO (NUVEM)
+// HOOK DE SINCRONIZAÇÃO EM TEMPO REAL (NUVEM)
 // ==========================================
 const useFirestoreDB = (docName, initialValue) => {
   const [data, setData] = useState(initialValue);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!db) {
-      setIsLoaded(true);
-      return;
-    }
+    if (!db) { setIsLoaded(true); return; }
     try {
       const unsub = onSnapshot(doc(db, 'coremu_database', docName), 
         (docSnap) => {
           if (docSnap.exists()) {
             setData(docSnap.data().value || initialValue);
           } else {
-            setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch(e => console.error("Erro silencioso:", e));
+            setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch(e => console.error(e));
             setData(initialValue);
           }
           setIsLoaded(true);
@@ -103,11 +97,8 @@ const useFirestoreDB = (docName, initialValue) => {
     const valToSave = typeof newValue === 'function' ? newValue(data) : newValue;
     setData(valToSave); 
     if (db) {
-      try {
-        await setDoc(doc(db, 'coremu_database', docName), { value: valToSave });
-      } catch (error) {
-        console.error("Falha ao gravar na nuvem:", error);
-      }
+      try { await setDoc(doc(db, 'coremu_database', docName), { value: valToSave }); } 
+      catch (error) { console.error("Falha ao gravar:", error); }
     }
   };
 
@@ -119,7 +110,7 @@ const useFirestoreDB = (docName, initialValue) => {
 // ==========================================
 function LmsEnterprisePortal() {
   
-  // 1. TODAS as chamadas de banco de dados
+  // 1. DADOS DO BANCO
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
@@ -144,7 +135,7 @@ function LmsEnterprisePortal() {
     'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }]
   });
 
-  // 2. TODOS os Hooks de estado da interface
+  // 2. ESTADOS DA INTERFACE
   const [activeUserId, setActiveUserId] = useState('admin1');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentView, setCurrentView] = useState('admin_dashboard'); 
@@ -152,14 +143,13 @@ function LmsEnterprisePortal() {
   const [activeCourseId, setActiveCourseId] = useState(null);
   const [expandedModules, setExpandedModules] = useState({});
 
-  // 3. TODOS os Hooks dos Modais
+  // 3. ESTADOS DOS MODAIS E FORMULÁRIOS
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
   const [newFile, setNewFile] = useState(null);
 
-  // 4. TODOS os Hooks de Formulários
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('aluno');
   const [editingUserId, setEditingUserId] = useState(null);
@@ -169,7 +159,7 @@ function LmsEnterprisePortal() {
   const [newCourseProfId, setNewCourseProfId] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
 
-  // Variáveis com blindagem total contra undefined (Não usam hooks, logo são seguras)
+  // Tratamento de Segurança das Variáveis
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
@@ -179,10 +169,7 @@ function LmsEnterprisePortal() {
   const role = currentUser?.role || 'admin';
   const canEdit = editMode && (role === 'admin' || role === 'professor');
 
-  // ==========================================
-  // TELA DE CARREGAMENTO (AGUARDANDO FIREBASE)
-  // (AGORA POSICIONADA APÓS TODOS OS HOOKS)
-  // ==========================================
+  // Tela de Loading enquanto o Firebase Baixa os Dados
   const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded;
   if (!isDbReady) {
     return (
@@ -194,7 +181,7 @@ function LmsEnterprisePortal() {
     );
   }
 
-  // Filtragem e Troca de Usuários
+  // Lógica de Visão de Cursos
   const visibleCourses = courses.filter(c => {
     if (!c) return false;
     if (role === 'admin') return true;
@@ -274,12 +261,7 @@ function LmsEnterprisePortal() {
     setEditingUserName('');
   };
 
-  const handleCancelEditUser = () => {
-    setEditingUserId(null);
-    setEditingUserName('');
-  };
-
-  // Funções de Disciplinas
+  // Funções de Gestão de Disciplinas
   const handleCreateCourse = (e) => {
     e.preventDefault();
     if (!newCourseCode || !newCourseName || !newCourseProfId) return;
@@ -301,6 +283,11 @@ function LmsEnterprisePortal() {
     }
   };
 
+  const updateCourseDetails = (field, value) => {
+    setDbCourses(courses.map(c => c?.id === activeCourseId ? { ...c, [field]: value } : c));
+  };
+
+  // Funções de Matrícula (Admin e Professor)
   const handleEnrollStudent = (e, courseId) => {
     e.preventDefault();
     if (!newStudentId) return;
@@ -310,7 +297,12 @@ function LmsEnterprisePortal() {
     setNewStudentId('');
   };
 
-  // Variáveis da Disciplina Ativa
+  const deleteStudent = (studentId) => {
+    if (window.confirm('Remover a matrícula deste residente?')) {
+      setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.filter(s => s?.studentId !== studentId) });
+    }
+  };
+
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
   const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
   const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
@@ -328,7 +320,7 @@ function LmsEnterprisePortal() {
     u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id)
   );
 
-  // Modificações de Conteúdo
+  // Funções de Edição de Módulos e Anexos
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
 
@@ -342,14 +334,6 @@ function LmsEnterprisePortal() {
   const deleteSection = (id) => { if (window.confirm('Excluir este módulo?')) updateContent(activeContent.filter(sec => sec?.id !== id)); };
   const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).map(item => item?.id === itemId ? { ...item, title: newTitle } : item) } : sec));
   const deleteItem = (sectionId, itemId) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).filter(item => item?.id !== itemId) } : sec));
-
-  const handleOpenAddItemModal = (sectionId) => {
-    setActiveSectionForNewItem(sectionId);
-    setNewItemTitle('');
-    setNewItemType('FileText');
-    setNewItemUrl('');
-    setNewFile(null);
-  };
 
   const handleConfirmAddItem = (e) => {
     e.preventDefault();
@@ -374,6 +358,7 @@ function LmsEnterprisePortal() {
     setActiveSectionForNewItem(null); 
   };
 
+  // Funções de Notas e Presença
   const updateGrade = (studentId, field, value) => {
     setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
   };
@@ -390,11 +375,6 @@ function LmsEnterprisePortal() {
         return s;
     })});
   };
-  const deleteStudent = (studentId) => {
-    if (window.confirm('Remover a matrícula?')) {
-      setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.filter(s => s?.studentId !== studentId) });
-    }
-  };
 
   const getIconComponent = (type) => {
     switch (type) {
@@ -408,7 +388,9 @@ function LmsEnterprisePortal() {
     }
   };
 
-  // TELAS
+  // ==========================================
+  // RENDERIZAÇÃO DAS TELAS SECUNDÁRIAS
+  // ==========================================
   const renderAdminUsers = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
@@ -461,13 +443,7 @@ function LmsEnterprisePortal() {
                           {u.avatar}
                         </div>
                         {editingUserId === u.id ? (
-                          <input 
-                            type="text" 
-                            value={editingUserName} 
-                            onChange={e => setEditingUserName(e.target.value)} 
-                            className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs"
-                            autoFocus
-                          />
+                          <input type="text" value={editingUserName} onChange={e => setEditingUserName(e.target.value)} className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs" autoFocus />
                         ) : (
                           <span>{u.nome}</span>
                         )}
@@ -553,8 +529,8 @@ function LmsEnterprisePortal() {
                     <p className="text-xs text-slate-400">{Array.isArray(courseStudents[c.id]) ? courseStudents[c.id].length : 0} aluno(s) matriculado(s)</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { setActiveCourseId(c.id); setCurrentView('admin_students'); }} className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-100 flex items-center gap-2">
-                      <UserPlus className="w-3.5 h-3.5"/> Matrículas
+                    <button onClick={() => { setActiveCourseId(c.id); setCurrentView('participants'); }} className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-100 flex items-center gap-2">
+                      <Layout className="w-3.5 h-3.5"/> Abrir Disciplina
                     </button>
                     <button onClick={() => handleDeleteCourse(c.id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100">
                       Excluir
@@ -569,55 +545,65 @@ function LmsEnterprisePortal() {
     </div>
   );
 
-  const renderAdminStudents = () => (
+  const renderParticipants = () => (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => setCurrentView('admin_dashboard')} className="text-slate-500 hover:text-slate-800 font-bold text-sm flex items-center">
-          <ChevronRight className="w-4 h-4 rotate-180 mr-1"/> Voltar às Disciplinas
-        </button>
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-blue-50 text-blue-700 rounded-xl"><Users className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Participantes da Disciplina</h2>
+          <p className="text-sm text-slate-500 mt-1">Visualize e gerencie os residentes matriculados nesta turma.</p>
+        </div>
       </div>
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-black text-slate-800">Gestão de Matrículas</h2>
-        <p className="text-sm text-slate-500 mt-1">Disciplina: <strong className="text-teal-700">{activeCourseObj?.codigo}</strong> - {activeCourseObj?.nome}</p>
-        
-        <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="mt-6 flex gap-3 max-w-lg">
-          <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
-            <option value="">Selecione um residente cadastrado...</option>
-            {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-          </select>
-          <button type="submit" className="bg-teal-800 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2">
-            <Plus className="w-4 h-4"/> Matricular
-          </button>
-        </form>
 
-        <div className="mt-8 border rounded-xl overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-100 text-slate-600 font-bold border-b">
-              <tr>
-                <th className="p-3">Nome do Aluno</th>
-                <th className="p-3 text-center">Status</th>
-                <th className="p-3 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {studentsInCourse.length === 0 ? (
-                <tr><td colSpan="3" className="p-6 text-center text-slate-500">Nenhum aluno matriculado nesta disciplina.</td></tr>
-              ) : (
-                studentsInCourse.map(s => {
-                  if(!s) return null;
-                  return (
-                  <tr key={s.studentId} className="hover:bg-slate-50">
-                    <td className="p-3 font-bold text-slate-800">{s.nome}</td>
-                    <td className="p-3 text-center"><span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-1 rounded font-bold uppercase">Ativo</span></td>
-                    <td className="p-3 text-right">
+      {canEdit && (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-teal-600"/> Matricular Novo Residente</h3>
+          <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="flex gap-3 max-w-lg">
+            <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+              <option value="">Selecione um residente cadastrado no sistema...</option>
+              {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+            <button type="submit" className="bg-teal-800 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2">
+              <Plus className="w-4 h-4"/> Matricular
+            </button>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-100 text-slate-600 font-bold border-b">
+            <tr>
+              <th className="p-4">Nome do Aluno</th>
+              <th className="p-4 text-center">Status</th>
+              {canEdit && <th className="p-4 text-right">Ação</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {studentsInCourse.length === 0 ? (
+              <tr><td colSpan={canEdit ? 3 : 2} className="p-6 text-center text-slate-500">Nenhum aluno matriculado nesta disciplina.</td></tr>
+            ) : (
+              studentsInCourse.map(s => {
+                if(!s) return null;
+                return (
+                <tr key={s.studentId} className="hover:bg-slate-50">
+                  <td className="p-4 font-bold text-slate-800 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      {systemUsers[s.studentId]?.avatar || '??'}
+                    </div>
+                    {s.nome}
+                  </td>
+                  <td className="p-4 text-center"><span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-1 rounded font-bold uppercase">Matriculado</span></td>
+                  {canEdit && (
+                    <td className="p-4 text-right">
                       <button onClick={() => deleteStudent(s.studentId)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4 inline"/></button>
                     </td>
-                  </tr>
-                )})
-              )}
-            </tbody>
-          </table>
-        </div>
+                  )}
+                </tr>
+              )})
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -650,7 +636,6 @@ function LmsEnterprisePortal() {
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome do Recurso</label>
                 <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos" className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
               </div>
-              
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tipo de Material</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -677,15 +662,10 @@ function LmsEnterprisePortal() {
                   {newItemType === 'Link' ? (
                     <input type="url" value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="https://..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                   ) : (
-                    <input 
-                      type="file" 
-                      onChange={(e) => setNewFile(e.target.files[0])} 
-                      className="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer text-slate-500" 
-                    />
+                    <input type="file" onChange={(e) => setNewFile(e.target.files[0])} className="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer text-slate-500" />
                   )}
                 </div>
               )}
-
               <div className="pt-2">
                 <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md">
                   Salvar e Adicionar ao Curso
@@ -705,7 +685,7 @@ function LmsEnterprisePortal() {
       {activeContent.length === 0 && (
         <div className="text-center p-12 bg-white rounded-xl border border-slate-200 text-slate-500">
           <Book className="w-12 h-12 mx-auto mb-3 text-slate-300"/>
-          <p className="font-bold text-lg text-slate-700">O professor ainda não publicou conteúdos.</p>
+          <p className="font-bold text-lg text-slate-700">Ainda não há conteúdos publicados.</p>
         </div>
       )}
 
@@ -816,35 +796,23 @@ function LmsEnterprisePortal() {
                 return (
                   <tr key={aluno.studentId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     <td className="p-3 font-bold text-slate-700 border-r border-slate-200">{aluno.nome}</td>
-                    
                     <td className="p-2 border-r border-slate-200 text-center">
-                      {canEdit ? (
-                        <input type="number" step="0.1" value={aluno.ga||''} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
-                      ) : (<span className="font-bold text-slate-700">{aluno.ga}</span>)}
+                      {canEdit ? <input type="number" step="0.1" value={aluno.ga||''} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.ga}</span>}
                     </td>
                     <td className="p-2 border-r border-slate-200 text-center">
-                      {canEdit ? (
-                        <input type="number" step="0.1" value={aluno.gb||''} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
-                      ) : (<span className="font-bold text-slate-700">{aluno.gb}</span>)}
+                      {canEdit ? <input type="number" step="0.1" value={aluno.gb||''} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gb}</span>}
                     </td>
                     <td className="p-2 border-r border-slate-200 text-center">
-                      {canEdit ? (
-                        <input type="number" step="0.1" value={aluno.gc||''} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
-                      ) : (<span className="font-bold text-slate-700">{aluno.gc}</span>)}
+                      {canEdit ? <input type="number" step="0.1" value={aluno.gc||''} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gc}</span>}
                     </td>
-                    
                     <td className="p-3 border-r border-slate-200 text-center font-black bg-slate-100 text-base">{total}</td>
-                    
                     <td className="p-3 border-r border-slate-200 text-center">
                       <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                         {isApproved ? 'Aprovado' : 'Em Exame'}
                       </span>
                     </td>
-                    
                     <td className="p-2">
-                      {canEdit ? (
-                        <input type="text" value={aluno.feedback||''} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" />
-                      ) : (<span className="text-xs text-slate-500 italic">{aluno.feedback || "Sem feedback no momento."}</span>)}
+                      {canEdit ? <input type="text" value={aluno.feedback||''} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="text-xs text-slate-500 italic">{aluno.feedback || "Sem feedback no momento."}</span>}
                     </td>
                   </tr>
                 );
@@ -920,7 +888,7 @@ function LmsEnterprisePortal() {
             
             {role === 'admin' && (
               <>
-                <button onClick={() => {setCurrentView('admin_dashboard'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-bold transition-colors ${currentView === 'admin_dashboard' || currentView === 'admin_students' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
+                <button onClick={() => {setCurrentView('admin_dashboard'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-bold transition-colors ${currentView === 'admin_dashboard' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
                   <Shield className="w-5 h-5 flex-shrink-0" />
                   {sidebarOpen && <span>Gestão COREMU</span>}
                 </button>
@@ -946,19 +914,26 @@ function LmsEnterprisePortal() {
             ) : (
               visibleCourses.map(c => {
                 if(!c) return null;
+                const isCourseActive = activeCourseId === c.id && ['course_home', 'participants', 'grades', 'attendance'].includes(currentView);
                 return (
                 <div key={c.id}>
-                  <button onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home'); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${activeCourseId === c.id && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && currentView !== 'admin_users' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 text-slate-400'}`}>
+                  <button onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home'); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${isCourseActive ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 text-slate-400'}`}>
                     <Book className="w-5 h-5 flex-shrink-0" />
                     {sidebarOpen && <span className="truncate">{c.codigo}</span>}
                   </button>
                   
-                  {activeCourseId === c.id && sidebarOpen && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && currentView !== 'admin_users' && (
+                  {isCourseActive && sidebarOpen && (
                     <div className="ml-4 pl-4 border-l border-slate-700 mt-1 space-y-1">
-                      <button onClick={() => setCurrentView('grades')} className={`w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${currentView === 'grades' ? 'text-teal-400' : 'hover:bg-slate-800 text-slate-400'}`}>
+                      <button onClick={() => setCurrentView('course_home')} className={`w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${currentView === 'course_home' ? 'text-teal-400 bg-slate-800' : 'hover:bg-slate-800 text-slate-400'}`}>
+                        <Layout className="w-4 h-4 flex-shrink-0" /> Mural e Módulos
+                      </button>
+                      <button onClick={() => setCurrentView('participants')} className={`w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${currentView === 'participants' ? 'text-teal-400 bg-slate-800' : 'hover:bg-slate-800 text-slate-400'}`}>
+                        <Users className="w-4 h-4 flex-shrink-0" /> Participantes
+                      </button>
+                      <button onClick={() => setCurrentView('grades')} className={`w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${currentView === 'grades' ? 'text-teal-400 bg-slate-800' : 'hover:bg-slate-800 text-slate-400'}`}>
                         <BarChart className="w-4 h-4 flex-shrink-0" /> Notas e Parecer
                       </button>
-                      <button onClick={() => setCurrentView('attendance')} className={`w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${currentView === 'attendance' ? 'text-teal-400' : 'hover:bg-slate-800 text-slate-400'}`}>
+                      <button onClick={() => setCurrentView('attendance')} className={`w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${currentView === 'attendance' ? 'text-teal-400 bg-slate-800' : 'hover:bg-slate-800 text-slate-400'}`}>
                         <CheckSquare className="w-4 h-4 flex-shrink-0" /> Diário de Frequência
                       </button>
                     </div>
@@ -989,7 +964,6 @@ function LmsEnterprisePortal() {
               <span className="text-teal-800 font-bold py-5">Portal COREMU HACO</span>
             </div>
           </div>
-          
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 p-1.5">
               <div className="text-right hidden sm:block">
@@ -1007,22 +981,31 @@ function LmsEnterprisePortal() {
           <div className="max-w-5xl mx-auto">
             
             {currentView === 'admin_dashboard' && renderAdminDashboard()}
-            {currentView === 'admin_students' && renderAdminStudents()}
             {currentView === 'admin_users' && renderAdminUsers()}
             {currentView === 'empty_state' && renderEmptyState()}
 
-            {activeCourseId && currentView !== 'admin_dashboard' && currentView !== 'admin_students' && currentView !== 'admin_users' && (
+            {activeCourseId && ['course_home', 'participants', 'grades', 'attendance'].includes(currentView) && (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
-                  <div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
-                      {activeCourseObj?.nome}
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-1 font-medium">{activeCourseObj?.codigo} • Professor Titular: {systemUsers[activeCourseObj?.professorId]?.nome}</p>
+                  <div className="flex-1">
+                    {canEdit ? (
+                      <input type="text" value={activeCourseObj?.nome || ''} onChange={(e) => updateCourseDetails('nome', e.target.value)} placeholder="Nome da Disciplina" className="w-full text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight bg-transparent border-b-2 border-dashed border-slate-300 focus:border-teal-500 focus:outline-none mb-1 pb-1" />
+                    ) : (
+                      <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">{activeCourseObj?.nome}</h1>
+                    )}
+                    
+                    {canEdit ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <input type="text" value={activeCourseObj?.codigo || ''} onChange={(e) => updateCourseDetails('codigo', e.target.value)} placeholder="Código" className="w-32 text-sm text-slate-500 font-medium bg-transparent border-b-2 border-dashed border-slate-300 focus:border-teal-500 focus:outline-none" />
+                        <span className="text-sm text-slate-500 font-medium">• Professor: {systemUsers[activeCourseObj?.professorId]?.nome}</span>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500 mt-1 font-medium">{activeCourseObj?.codigo} • Professor Titular: {systemUsers[activeCourseObj?.professorId]?.nome}</p>
+                    )}
                   </div>
                   
                   {canEdit && (
-                    <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm">
+                    <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm shrink-0">
                       <span className="text-xs font-bold text-slate-600 px-2 hidden sm:inline">Modo de Edição</span>
                       <button onClick={() => setEditMode(!editMode)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${editMode ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                         {editMode ? <ToggleRight className="w-4 h-4 mr-1"/> : <ToggleLeft className="w-4 h-4 mr-1"/>}
@@ -1038,12 +1021,14 @@ function LmsEnterprisePortal() {
                   <span className="font-bold text-teal-700">{activeCourseObj?.codigo}</span>
                   <ChevronRight className="w-3 h-3 mx-2" />
                   <span className="text-slate-700 font-bold">{
-                    currentView === 'course_home' ? 'Mural da Disciplina' : 
-                    currentView === 'grades' ? 'Boletim de Notas' : 'Diário de Classe'
+                    currentView === 'course_home' ? 'Mural e Módulos' : 
+                    currentView === 'grades' ? 'Boletim de Notas' : 
+                    currentView === 'participants' ? 'Participantes' : 'Diário de Classe'
                   }</span>
                 </div>
 
                 {currentView === 'course_home' && renderCourseHome()}
+                {currentView === 'participants' && renderParticipants()}
                 {currentView === 'grades' && renderGradebook()}
                 {currentView === 'attendance' && renderAttendance()}
               </>
