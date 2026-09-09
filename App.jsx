@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Menu, Bell, Search, Home, Book, Calendar, Users, BarChart, 
+  Menu, Bell, Search, Home, Book, Calendar, BarChart, 
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Archive, CheckSquare, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2
@@ -159,7 +159,7 @@ export default function LmsEnterprisePortal() {
   };
 
   const currentUser = {
-    nome: role === 'aluno' ? 'Ana Silva' : (role === 'professor' ? 'Prof. Norberto Cimirro' : 'Gestão COREMU'),
+    nome: role === 'aluno' ? 'Ana Silva' : (role === 'professor' ? '1º Ten Norberto Cimirro' : 'Gestão COREMU'),
     avatar: role === 'aluno' ? 'AS' : (role === 'professor' ? 'NC' : 'GC'),
   };
 
@@ -210,7 +210,7 @@ export default function LmsEnterprisePortal() {
             <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Simulador de Acesso</p>
             <select value={role} onChange={(e) => { setRole(e.target.value); setEditMode(false); }} className="w-full bg-slate-800 text-xs text-slate-300 p-2 rounded border border-slate-700 outline-none">
               <option value="admin">Administrador (TI)</option>
-              <option value="professor">Professor / Gestor[cite: 1]</option>
+              <option value="professor">Professor / Gestor</option>
               <option value="aluno">Aluno / Residente</option>
             </select>
           </div>
@@ -259,7 +259,7 @@ export default function LmsEnterprisePortal() {
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
                   {course.nome}
                 </h1>
-                <p className="text-sm text-slate-500 mt-1 font-medium">{course.codigo} • Curso de Especialização / Residência do Hospital Moinhos de Vento</p>
+                <p className="text-sm text-slate-500 mt-1 font-medium">{course.codigo} • Curso de Especialização / Residência Multiprofissional</p>
               </div>
               
               {(role === 'professor' || role === 'admin') && (
