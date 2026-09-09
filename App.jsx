@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Menu, Bell, Search, Home, Book, Calendar, Users, BarChart, 
   ChevronDown, ChevronRight, Plus, FileText, 
-  MessageSquare, FileBox, CheckSquare, Upload, Download,
+  MessageSquare, Archive, CheckSquare, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2
 } from 'lucide-react';
 
@@ -44,7 +44,7 @@ export default function LmsEnterprisePortal() {
       {
         id: 'materiais', title: 'Materiais didáticos', bgColor: 'bg-emerald-50/50', borderColor: 'border-emerald-100',
         items: [
-          { id: 'i5', title: 'Aula 2 - Material de Apoio', type: 'FileBox', color: 'text-slate-400' }
+          { id: 'i5', title: 'Aula 2 - Material de Apoio', type: 'Archive', color: 'text-slate-400' }
         ]
       }
     ];
@@ -151,7 +151,7 @@ export default function LmsEnterprisePortal() {
     switch (type) {
       case 'FileText': return FileText;
       case 'MessageSquare': return MessageSquare;
-      case 'FileBox': return FileBox;
+      case 'Archive': return Archive;
       case 'Upload': return Upload;
       case 'CheckSquare': return CheckSquare;
       default: return FileText;
@@ -210,7 +210,7 @@ export default function LmsEnterprisePortal() {
             <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Simulador de Acesso</p>
             <select value={role} onChange={(e) => { setRole(e.target.value); setEditMode(false); }} className="w-full bg-slate-800 text-xs text-slate-300 p-2 rounded border border-slate-700 outline-none">
               <option value="admin">Administrador (TI)</option>
-              <option value="professor">Professor / Gestor</option>
+              <option value="professor">Professor / Gestor[cite: 1]</option>
               <option value="aluno">Aluno / Residente</option>
             </select>
           </div>
@@ -259,7 +259,7 @@ export default function LmsEnterprisePortal() {
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
                   {course.nome}
                 </h1>
-                <p className="text-sm text-slate-500 mt-1 font-medium">{course.codigo} • Curso de Especialização / Residência</p>
+                <p className="text-sm text-slate-500 mt-1 font-medium">{course.codigo} • Curso de Especialização / Residência do Hospital Moinhos de Vento</p>
               </div>
               
               {(role === 'professor' || role === 'admin') && (
