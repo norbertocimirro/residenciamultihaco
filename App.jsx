@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   Menu, Bell, Search, Home, Book, Calendar, BarChart, 
   ChevronDown, ChevronRight, Plus, FileText, 
@@ -23,9 +24,11 @@ const firebaseConfig = {
 
 let app;
 let db;
+let storage;
 try {
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   db = getFirestore(app);
+  storage = getStorage(app);
 } catch (e) {
   console.error("Erro crítico na inicialização do Firebase", e);
 }
@@ -135,7 +138,6 @@ function LmsEnterprisePortal() {
     'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }]
   });
 
-  // NOVA TABELA: Colunas Dinâmicas de Frequência
   const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', {
     'c1': [{ id: 'col1', label: '07/07 - 07:30' }, { id: 'col2', label: '07/07 - 08:20' }, { id: 'col3', label: '07/07 - 09:10' }]
   });
@@ -158,7 +160,6 @@ function LmsEnterprisePortal() {
   const [activeCourseId, setActiveCourseId] = useState(null);
   const [expandedModules, setExpandedModules] = useState({});
 
-  // 🔥 A CORREÇÃO DA TRAVA DO BOTÃO:
   const hasEditPermission = role === 'admin' || role === 'professor';
   const isEditing = editMode && hasEditPermission;
 
@@ -168,6 +169,7 @@ function LmsEnterprisePortal() {
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
   const [newFile, setNewFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false); // NOVO ESTADO DE UPLOAD
 
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('aluno');
@@ -217,7 +219,7 @@ function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // FUNÇÕES DE GESTÃO DE USUÁRIOS E CURSOS
+  // FUNÇÕES DE GESTÃO
   // ==========================================
   const handleCreateUser = (e) => {
     e.preventDefault();
@@ -268,7 +270,7 @@ function LmsEnterprisePortal() {
     setDbCourses([...courses, { id: newId, codigo: newCourseCode, nome: newCourseName, professorId: newCourseProfId }]);
     setDbContents({ ...courseContents, [newId]: defaultModules });
     setDbStudents({ ...courseStudents, [newId]: [] });
-    setDbAttendanceCols({ ...attendanceCols, [newId]: [] }); // Inicializa sem aulas
+    setDbAttendanceCols({ ...attendanceCols, [newId]: [] }); 
     setNewCourseCode(''); setNewCourseName(''); setNewCourseProfId('');
     alert('Disciplina criada com sucesso!');
   };
@@ -291,7 +293,6 @@ function LmsEnterprisePortal() {
     e.preventDefault();
     if (!newStudentId) return;
     const currentColsLength = (attendanceCols[courseId] || []).length;
-    // O aluno novo entra com as faltas zeradas baseado na quantidade de aulas que já existem
     const newStudentData = { 
       studentId: newStudentId, ga: 0, gb: 0, gc: 0, 
       faltas: new Array(currentColsLength).fill(false), 
@@ -308,9 +309,6 @@ function LmsEnterprisePortal() {
     }
   };
 
-  // ==========================================
-  // FUNÇÕES DE FREQUÊNCIA (NOVAS)
-  // ==========================================
   const handleAddAttendanceCol = () => {
     const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00 às 10:00):");
     if (!label) return;
@@ -319,7 +317,6 @@ function LmsEnterprisePortal() {
     const newCols = [...currentCols, { id: `col_${Date.now()}`, label }];
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
 
-    // Adiciona uma "presença padrão (false)" no final do array de faltas de todos os alunos
     const updatedStudents = rawActiveStudents.map(s => ({
       ...s,
       faltas: [...(s.faltas || []), false]
@@ -334,7 +331,6 @@ function LmsEnterprisePortal() {
     const newCols = currentCols.filter((_, i) => i !== colIndex);
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
 
-    // Remove o índice correspondente da matriz de faltas
     const updatedStudents = rawActiveStudents.map(s => {
       const newFaltas = [...(s.faltas || [])];
       newFaltas.splice(colIndex, 1);
@@ -343,7 +339,6 @@ function LmsEnterprisePortal() {
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
   };
 
-  // Variáveis da Disciplina Ativa
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
   const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
   const currentAttendanceCols = attendanceCols[activeCourseId] || [];
@@ -363,7 +358,7 @@ function LmsEnterprisePortal() {
   );
 
   // ==========================================
-  // FUNÇÕES DE CONTEÚDO E ANEXOS
+  // FUNÇÕES DE CONTEÚDO E UPLOAD DE ARQUIVOS
   // ==========================================
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
@@ -387,21 +382,41 @@ function LmsEnterprisePortal() {
     setNewFile(null);
   };
 
-  const handleConfirmAddItem = (e) => {
+  // NOVA LÓGICA DE UPLOAD REAL
+  const handleConfirmAddItem = async (e) => {
     e.preventDefault();
     if (!newItemTitle) return;
+
     let color = 'text-slate-500';
     if (newItemType === 'FileText') color = 'text-red-500';
     else if (newItemType === 'Link') color = 'text-blue-500';
     else if (newItemType === 'MessageSquare') color = 'text-purple-600';
     else if (newItemType === 'Upload') color = 'text-teal-600';
 
+    let finalUrl = newItemUrl || null;
+    let finalFileName = newFile ? newFile.name : null;
+
+    if ((newItemType === 'FileText' || newItemType === 'Upload') && newFile) {
+      setIsUploading(true);
+      try {
+        const fileRef = ref(storage, `arquivos_coremu/${Date.now()}_${newFile.name}`);
+        await uploadBytes(fileRef, newFile);
+        finalUrl = await getDownloadURL(fileRef);
+      } catch (err) {
+        console.error(err);
+        alert("Erro no Upload! Verifique se você ativou as Regras do Firebase Storage.");
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
     updateContent(activeContent.map(sec => {
       if (sec?.id === activeSectionForNewItem) {
         return {
           ...sec,
           items: [...(sec.items || []), { 
-            id: `item_${Date.now()}`, title: newItemTitle, type: newItemType, color: color, url: newItemUrl || null, fileName: newFile ? newFile.name : null 
+            id: `item_${Date.now()}`, title: newItemTitle, type: newItemType, color: color, url: finalUrl, fileName: finalFileName 
           }]
         };
       }
@@ -446,7 +461,6 @@ function LmsEnterprisePortal() {
   // ==========================================
   // RENDERIZAÇÃO DAS TELAS SECUNDÁRIAS
   // ==========================================
-
   const renderUserHome = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
@@ -747,8 +761,10 @@ function LmsEnterprisePortal() {
                 </div>
               )}
               <div className="pt-2">
-                <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md">
-                  Salvar e Adicionar ao Curso
+                <button type="submit" disabled={isUploading} className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md disabled:bg-slate-400">
+                  {isUploading ? (
+                    <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Enviando arquivo...</span>
+                  ) : 'Salvar e Adicionar ao Curso'}
                 </button>
               </div>
             </form>
@@ -807,11 +823,12 @@ function LmsEnterprisePortal() {
                         )}
                         
                         {item.fileName && (
-                          <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 mt-1 bg-slate-100 w-fit px-2 py-0.5 rounded border border-slate-200">
-                            <Paperclip className="w-3 h-3"/> {item.fileName}
-                          </div>
+                          <a href={item.url || '#'} target={item.url ? "_blank" : "_self"} rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-slate-600 mt-1 bg-slate-100 w-fit px-2 py-1 rounded border border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition cursor-pointer print:hidden">
+                            <Paperclip className="w-3 h-3"/> {item.fileName} 
+                            {item.url && <Download className="w-3 h-3 ml-1 text-teal-600"/>}
+                          </a>
                         )}
-                        {item.url && !isEditing && (
+                        {item.url && !item.fileName && !isEditing && (
                           <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline mt-1 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100 print:hidden">
                             <Link className="w-3 h-3"/> Acessar Link Externo
                           </a>
@@ -965,7 +982,6 @@ function LmsEnterprisePortal() {
                       const isFalta = faltasArray[i];
                       return (
                         <td key={col.id} className={`p-2 border border-slate-200 text-center transition-colors ${isEditing ? 'cursor-pointer hover:opacity-80' : ''} ${isFalta ? 'bg-slate-800 print:bg-white print:text-black' : 'bg-emerald-700 print:bg-white print:text-black'}`} onClick={() => isEditing && toggleAttendance(aluno.studentId, i)}>
-                          {/* Em tela mostra checkbox. Na impressão mostra F ou P */}
                           <div className="print:hidden">
                             <input type="checkbox" checked={!isFalta} readOnly className="w-4 h-4 rounded text-white pointer-events-none" />
                           </div>
@@ -1118,7 +1134,6 @@ function LmsEnterprisePortal() {
                     )}
                   </div>
                   
-                  {/* BOTÃO DE EDIÇÃO PROTEGIDO MAS VISÍVEL */}
                   {hasEditPermission && (
                     <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm shrink-0 print:hidden">
                       <span className="text-xs font-bold text-slate-600 px-2 hidden sm:inline">Modo de Edição</span>
