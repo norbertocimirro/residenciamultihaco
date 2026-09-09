@@ -36,7 +36,7 @@ try {
 }
 
 // ==========================================
-// ESCUDO CONTRA TELA BRANCA
+// ESCUDO CONTRA TELA BRANCA (ERROR BOUNDARY)
 // ==========================================
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -131,7 +131,7 @@ function LmsEnterprisePortal() {
   });
   const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', { 'c1': [] });
   
-  // Tabelas: Fóruns (Tópicos e Respostas) e Provas Nativas
+  // Novas Tabelas: Fóruns (Tópicos e Respostas) e Provas Nativas
   const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums_v2', {});
   const [dbExams, setDbExams, examsLoaded] = useFirestoreDB('tb_exams_v1', {});
 
@@ -175,12 +175,12 @@ function LmsEnterprisePortal() {
   const [newCourseProfId, setNewCourseProfId] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
 
-  // Estados dos Novos Módulos (Provas, Leitura e Fórum)
+  // Estados dos Novos Módulos
   const [readingItem, setReadingItem] = useState(null); 
   const [activeForumItem, setActiveForumItem] = useState(null); 
   const [activeTopicId, setActiveTopicId] = useState(null); 
   const [activeExamItem, setActiveExamItem] = useState(null); 
-  const [localQuestions, setLocalQuestions] = useState([]); // Variável blindada para evitar erros no React
+  const [localQuestions, setLocalQuestions] = useState([]);
 
   const editorRef = useRef(null); 
   const chatEndRef = useRef(null); 
@@ -197,7 +197,7 @@ function LmsEnterprisePortal() {
   }
 
   // ==========================================
-  // FUNÇÕES GERAIS E NAVEGAÇÃO
+  // NAVEGAÇÃO E REGRAS DE ACESSO
   // ==========================================
   const visibleCourses = courses.filter(c => {
     if (!c) return false;
@@ -213,7 +213,6 @@ function LmsEnterprisePortal() {
   const switchUser = (userId) => {
     setActiveUserId(userId);
     setEditMode(false);
-    
     const newRole = systemUsers[userId]?.role || 'aluno';
     if (newRole === 'admin') {
       setCurrentView('admin_dashboard');
@@ -304,7 +303,7 @@ function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // CONTEÚDOS, UPLOAD E ÍCONES (CORRIGIDO)
+  // CONTEÚDOS E UPLOAD
   // ==========================================
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
@@ -377,28 +376,13 @@ function LmsEnterprisePortal() {
     setActiveSectionForNewItem(null); 
   };
 
-  // Funções do Editor de Texto (WYSIWYG)
   const execCommand = (command, value = null) => {
     document.execCommand(command, false, value);
     if (editorRef.current) editorRef.current.focus();
   };
 
-  const getIconComponent = (type) => {
-    switch (type) {
-      case 'FileText': return FileText;
-      case 'MessageSquare': return MessageSquare;
-      case 'Folder': return Folder;
-      case 'Upload': return Upload;
-      case 'CheckCircle': return CheckCircle;
-      case 'Link': return Link;
-      case 'TextContent': return AlignLeft;
-      case 'NativeExam': return ClipboardList;
-      default: return FileText;
-    }
-  };
-
   // ==========================================
-  // FUNÇÕES DE NOTAS E FREQUÊNCIAS
+  // FUNÇÕES DE NOTAS E FREQUÊNCIA
   // ==========================================
   const updateGrade = (studentId, field, value) => {
     setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
@@ -418,7 +402,7 @@ function LmsEnterprisePortal() {
   };
 
   const handleAddAttendanceCol = () => {
-    const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00 às 10:00):");
+    const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00):");
     if (!label) return;
     const currentCols = attendanceCols[activeCourseId] || [];
     const newCols = [...currentCols, { id: `col_${Date.now()}`, label }];
@@ -428,7 +412,7 @@ function LmsEnterprisePortal() {
   };
 
   const handleRemoveAttendanceCol = (colIndex) => {
-    if (!window.confirm('Deseja excluir esta aula do registro de todos os alunos?')) return;
+    if (!window.confirm('Deseja excluir esta aula de todos os registros?')) return;
     const currentCols = attendanceCols[activeCourseId] || [];
     const newCols = currentCols.filter((_, i) => i !== colIndex);
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
@@ -441,6 +425,20 @@ function LmsEnterprisePortal() {
   };
 
   const handlePrintPDF = () => { window.print(); };
+
+  const getIconComponent = (type) => {
+    switch (type) {
+      case 'FileText': return FileText || (() => <span>FT</span>);
+      case 'MessageSquare': return MessageSquare || (() => <span>MS</span>);
+      case 'Folder': return Folder || (() => <span>FD</span>);
+      case 'Upload': return Upload || (() => <span>UP</span>);
+      case 'CheckCircle': return CheckCircle || (() => <span>CC</span>);
+      case 'Link': return Link || (() => <span>LK</span>);
+      case 'TextContent': return AlignLeft || (() => <span>AL</span>);
+      case 'NativeExam': return ClipboardList || (() => <span>EX</span>);
+      default: return FileText || (() => <span>FT</span>);
+    }
+  };
 
   // Variáveis da Disciplina Ativa
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
@@ -456,296 +454,281 @@ function LmsEnterprisePortal() {
   const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id));
 
   // ==========================================
-  // RENDERIZAÇÕES DOS MÓDULOS ESPECÍFICOS
+  // RENDERIZAÇÕES: TELAS ESPECÍFICAS
   // ==========================================
-  const renderForumModal = () => {
-    const forumData = forums[activeForumItem.id] || []; 
-    const currentTopicData = forumData.find(t => t.id === activeTopicId);
 
-    const handleCreateTopic = (e) => {
-      e.preventDefault();
-      const title = e.target.elements.title.value;
-      const desc = e.target.elements.desc.value;
-      if(!title) return;
-      const newTopic = {
-        id: `topic_${Date.now()}`, title, description: desc, authorId: currentUser.id, authorName: currentUser.nome, avatar: currentUser.avatar, createdAt: new Date().toISOString(), replies: []
-      };
-      setDbForums({ ...forums, [activeForumItem.id]: [...forumData, newTopic] });
-      e.target.reset();
-    };
+  const renderUserHome = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Home className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Olá, {currentUser.nome}</h2>
+          <p className="text-sm text-slate-500 mt-1">Bem-vindo ao Portal COREMU. Selecione uma disciplina abaixo para acessar a sala de aula virtual.</p>
+        </div>
+      </div>
 
-    const handleReplyTopic = (e) => {
-      e.preventDefault();
-      const text = e.target.elements.reply.value;
-      if(!text) return;
-      const newReply = { id: `rep_${Date.now()}`, text, authorId: currentUser.id, authorName: currentUser.nome, avatar: currentUser.avatar, createdAt: new Date().toISOString() };
-      
-      const updatedTopics = forumData.map(t => t.id === activeTopicId ? { ...t, replies: [...(t.replies||[]), newReply] } : t);
-      setDbForums({ ...forums, [activeForumItem.id]: updatedTopics });
-      e.target.reset();
-    };
-
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-purple-900 text-white shrink-0">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="w-5 h-5 text-purple-200"/>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {visibleCourses.length === 0 ? (
+          <div className="col-span-full text-center p-12 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-slate-500">
+            <Book className="w-12 h-12 mx-auto mb-3 text-slate-300"/>
+            <p className="font-bold text-lg text-slate-700">Nenhuma disciplina vinculada</p>
+            <p className="text-sm mt-1">Você ainda não possui turmas ou matriculas no semestre atual.</p>
+          </div>
+        ) : (
+          visibleCourses.map(c => {
+            if(!c) return null;
+            return (
+            <div key={c.id} onClick={() => {setActiveCourseId(c.id); setCurrentView('course_home');}} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition cursor-pointer flex flex-col justify-between h-full group">
               <div>
-                <h2 className="font-bold leading-tight">{activeForumItem.title}</h2>
-                <p className="text-[10px] text-purple-200 uppercase font-medium">Fórum de Discussão da Disciplina</p>
+                <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
+                <h3 className="font-bold text-slate-800 mt-3 group-hover:text-teal-700 transition leading-tight">{c.nome}</h3>
+                <p className="text-xs text-slate-500 mt-2">Professor: {systemUsers[c.professorId]?.nome || 'Não definido'}</p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-teal-700 text-sm font-bold">
+                Acessar Sala <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
               </div>
             </div>
-            <button onClick={() => { setActiveForumItem(null); setActiveTopicId(null); }} className="p-2 text-purple-200 hover:bg-purple-800 rounded-full transition-colors"><X className="w-5 h-5"/></button>
-          </div>
-          
-          <div className="flex-1 flex overflow-hidden bg-slate-50">
-            {!activeTopicId ? (
-              <div className="flex-1 p-6 overflow-y-auto">
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6">
-                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">Abrir Novo Tópico de Discussão</h3>
-                  <form onSubmit={handleCreateTopic} className="space-y-3">
-                    <input name="title" required placeholder="Título do Tópico (Ex: Dúvida sobre a Aula 02)" className="w-full border border-slate-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
-                    <textarea name="desc" required placeholder="Descreva sua dúvida ou assunto detalhadamente..." className="w-full border border-slate-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none h-20"></textarea>
-                    <button type="submit" className="bg-purple-700 text-white font-bold px-4 py-2 rounded-lg hover:bg-purple-800 transition text-sm">Criar Tópico</button>
-                  </form>
-                </div>
+          )})
+        )}
+      </div>
+    </div>
+  );
 
-                <div className="space-y-3">
-                  {forumData.length === 0 ? (
-                    <div className="text-center p-8 text-slate-400 font-medium">Nenhum tópico criado neste fórum. Seja o primeiro!</div>
-                  ) : (
-                    forumData.map(topic => (
-                      <div key={topic.id} onClick={() => setActiveTopicId(topic.id)} className="bg-white p-4 border border-slate-200 rounded-xl hover:border-purple-300 hover:shadow-md cursor-pointer transition flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold shrink-0">{topic.avatar}</div>
-                        <div className="flex-1">
-                          <h4 className="font-bold text-slate-800 text-base">{topic.title}</h4>
-                          <p className="text-xs text-slate-500 mt-1">Por {topic.authorName} em {new Date(topic.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        <div className="text-center shrink-0">
-                          <span className="block font-black text-purple-700 text-lg">{(topic.replies || []).length}</span>
-                          <span className="text-[10px] uppercase font-bold text-slate-400">Respostas</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col h-full bg-white">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 shrink-0">
-                  <button onClick={() => setActiveTopicId(null)} className="text-xs font-bold text-slate-500 hover:text-purple-700 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Voltar aos Tópicos</button>
-                  <h3 className="font-black text-xl text-slate-800 mt-2">{currentTopicData?.title}</h3>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3 border-b border-slate-100 pb-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">{currentTopicData?.avatar}</div>
-                      <div>
-                        <p className="font-bold text-slate-800 text-sm">{currentTopicData?.authorName}</p>
-                        <p className="text-[10px] text-slate-400">{new Date(currentTopicData?.createdAt).toLocaleString()}</p>
-                      </div>
-                    </div>
-                    <p className="text-slate-700 text-sm whitespace-pre-wrap">{currentTopicData?.description}</p>
-                  </div>
-
-                  <div className="pl-8 space-y-4 border-l-2 border-slate-200">
-                    {(currentTopicData?.replies || []).map(reply => (
-                      <div key={reply.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative">
-                        <div className="absolute -left-10 top-4 w-8 border-t-2 border-slate-200"></div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold shrink-0">{reply.avatar}</div>
-                          <p className="font-bold text-slate-800 text-xs">{reply.authorName} <span className="font-normal text-slate-400 ml-2">{new Date(reply.createdAt).toLocaleString()}</span></p>
-                        </div>
-                        <p className="text-slate-700 text-sm whitespace-pre-wrap">{reply.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="p-4 bg-white border-t border-slate-200 shrink-0">
-                  <form onSubmit={handleReplyTopic} className="flex gap-3">
-                    <textarea name="reply" required placeholder="Escreva sua resposta..." className="flex-1 border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none h-14"></textarea>
-                    <button type="submit" className="bg-purple-700 text-white font-bold px-6 py-2 rounded-lg hover:bg-purple-800 transition flex items-center justify-center">Enviar</button>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
+  const renderAdminUsers = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-purple-50 text-purple-700 rounded-xl"><Users className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Gestão de Usuários</h2>
+          <p className="text-sm text-slate-500 mt-1">Cadastre, edite ou remova residentes e preceptores do sistema.</p>
         </div>
       </div>
-    );
-  };
-
-  const renderExamModal = () => {
-    const examData = exams[activeExamItem.id] || { questions: [], submissions: {} };
-    
-    // Funções Seguras do Editor de Provas (Top-Level State modificado para State Derivado de Variável Global)
-    const handleAddQuestion = () => {
-      const newQ = [...localQuestions, { id: `q_${Date.now()}`, title: 'Nova Pergunta', options: ['Opção 1', 'Opção 2', 'Opção 3', 'Opção 4'], correctIndex: 0 }];
-      setLocalQuestions(newQ);
-    };
-    
-    const handleUpdateQuestion = (index, field, value) => {
-      const newQ = [...localQuestions];
-      newQ[index][field] = value;
-      setLocalQuestions(newQ);
-    };
-
-    const handleUpdateOption = (qIndex, oIndex, value) => {
-      const newQ = [...localQuestions];
-      newQ[qIndex].options[oIndex] = value;
-      setLocalQuestions(newQ);
-    };
-
-    const handleSaveExam = () => {
-      setDbExams({ ...exams, [activeExamItem.id]: { ...examData, questions: localQuestions } });
-      setActiveExamItem(null);
-      setLocalQuestions([]);
-      alert("Prova configurada e salva com sucesso!");
-    };
-
-    const handleCloseExam = () => {
-      setActiveExamItem(null);
-      setLocalQuestions([]);
-    };
-
-    if (isEditing) {
-      return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-rose-700 text-white shrink-0">
-              <div className="flex items-center gap-3">
-                <ClipboardList className="w-5 h-5"/>
-                <div>
-                  <h2 className="font-bold leading-tight">Configurar Prova: {activeExamItem.title}</h2>
-                  <p className="text-[10px] uppercase font-medium">Construtor Nativo</p>
-                </div>
-              </div>
-              <button onClick={handleCloseExam} className="p-2 hover:bg-rose-800 rounded-full transition-colors"><X className="w-5 h-5"/></button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-6">
-              {localQuestions.map((q, qIndex) => (
-                <div key={q.id} className="bg-white p-6 border border-slate-200 rounded-xl shadow-sm relative">
-                  <button onClick={() => setLocalQuestions(localQuestions.filter((_, i) => i !== qIndex))} className="absolute top-4 right-4 text-slate-300 hover:text-red-500"><Trash2 className="w-5 h-5"/></button>
-                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Pergunta {qIndex + 1}</label>
-                  <input type="text" value={q.title} onChange={e => handleUpdateQuestion(qIndex, 'title', e.target.value)} className="w-full border border-slate-300 p-3 rounded-lg text-sm font-bold focus:ring-2 focus:ring-rose-500 outline-none mb-4" />
-                  
-                  <div className="space-y-3 pl-4 border-l-2 border-slate-100">
-                    {q.options.map((opt, oIndex) => (
-                      <div key={oIndex} className="flex items-center gap-3">
-                        <input type="radio" name={`correct_${q.id}`} checked={q.correctIndex === oIndex} onChange={() => handleUpdateQuestion(qIndex, 'correctIndex', oIndex)} className="w-4 h-4 text-rose-600 focus:ring-rose-500 cursor-pointer"/>
-                        <input type="text" value={opt} onChange={e => handleUpdateOption(qIndex, oIndex, e.target.value)} className={`flex-1 border p-2 rounded-lg text-sm outline-none transition-all ${q.correctIndex === oIndex ? 'border-emerald-400 bg-emerald-50 text-emerald-800 font-bold' : 'border-slate-300 bg-white'}`} />
-                        {q.correctIndex === oIndex && <span className="text-[10px] font-bold text-emerald-600 uppercase">Correta</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              
-              <button onClick={handleAddQuestion} className="w-full border-2 border-dashed border-rose-300 text-rose-700 font-bold p-4 rounded-xl hover:bg-rose-50 transition flex items-center justify-center gap-2">
-                <Plus className="w-5 h-5"/> Adicionar Pergunta
-              </button>
-            </div>
-
-            <div className="p-4 bg-white border-t border-slate-200 shrink-0 flex justify-end gap-3">
-              <button onClick={handleCloseExam} className="px-6 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
-              <button onClick={handleSaveExam} className="bg-rose-700 text-white font-bold px-6 py-2 rounded-lg hover:bg-rose-800 transition shadow-md">Salvar Prova Oficial</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    const mySubmission = examData.submissions[currentUser.id];
-    const handleSumbitExam = (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      let score = 0;
-      const answers = [];
-      
-      examData.questions.forEach((q, index) => {
-        const selectedOption = parseInt(formData.get(`q_${index}`));
-        answers.push(selectedOption);
-        if (selectedOption === q.correctIndex) score++;
-      });
-      
-      const finalScore = ((score / examData.questions.length) * 10).toFixed(1);
-      const newSubmissions = { ...examData.submissions, [currentUser.id]: { score: finalScore, answers, submittedAt: new Date().toISOString() } };
-      setDbExams({ ...exams, [activeExamItem.id]: { ...examData, submissions: newSubmissions } });
-      alert(`Prova enviada com sucesso! Sua nota foi: ${finalScore}`);
-    };
-
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-rose-700 text-white shrink-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-purple-600"/> Novo Usuário</h3>
+          <form onSubmit={handleCreateUser} className="space-y-4">
             <div>
-              <h2 className="font-black text-2xl leading-tight">{activeExamItem.title}</h2>
-              <p className="text-xs text-rose-200 uppercase font-bold mt-1">Avaliação Oficial COREMU</p>
+              <label className="text-xs font-bold text-slate-500 uppercase">Nome Completo</label>
+              <input type="text" required value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Ex: Dra. Ana Costa" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
             </div>
-            <button onClick={handleCloseExam} className="p-2 hover:bg-rose-800 rounded-full transition-colors"><X className="w-6 h-6"/></button>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-6 sm:p-10 bg-slate-50">
-            {mySubmission ? (
-              <div className="text-center bg-white p-12 rounded-2xl border border-slate-200 shadow-sm max-w-md mx-auto mt-10">
-                <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4"/>
-                <h3 className="text-2xl font-black text-slate-800">Prova Concluída</h3>
-                <p className="text-slate-500 mt-2">Você já enviou suas respostas para esta avaliação.</p>
-                <div className="mt-6 inline-block bg-slate-100 p-4 rounded-xl border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nota Final Obtida</span>
-                  <span className="text-4xl font-black text-slate-800">{mySubmission.score}</span>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSumbitExam} className="space-y-8 max-w-2xl mx-auto">
-                {examData.questions.length === 0 ? (
-                  <p className="text-center text-slate-500">O professor ainda não configurou as questões desta prova.</p>
-                ) : (
-                  <>
-                    {examData.questions.map((q, qIndex) => (
-                      <div key={qIndex} className="bg-white p-6 border border-slate-200 rounded-xl shadow-sm">
-                        <h4 className="font-bold text-slate-800 text-lg mb-4">{qIndex + 1}. {q.title}</h4>
-                        <div className="space-y-3">
-                          {q.options.map((opt, oIndex) => (
-                            <label key={oIndex} className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 hover:border-rose-300 transition-all has-[:checked]:bg-rose-50 has-[:checked]:border-rose-500 has-[:checked]:ring-1 has-[:checked]:ring-rose-500">
-                              <input type="radio" required name={`q_${qIndex}`} value={oIndex} className="mt-1 w-4 h-4 text-rose-600 focus:ring-rose-500 border-slate-300"/>
-                              <span className="text-sm font-medium text-slate-700 leading-relaxed">{opt}</span>
-                            </label>
-                          ))}
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Perfil de Acesso</label>
+              <select required value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white">
+                <option value="aluno">Aluno / Residente</option>
+                <option value="professor">Professor / Preceptor</option>
+                <option value="admin">Administrador (Gestão)</option>
+              </select>
+            </div>
+            <button type="submit" className="w-full bg-purple-800 text-white font-bold p-3 rounded-lg hover:bg-purple-900 transition flex items-center justify-center gap-2">
+              <Plus className="w-4 h-4"/> Salvar na Nuvem
+            </button>
+          </form>
+        </div>
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-slate-600"/> Usuários Ativos</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-100 text-slate-600 font-bold border-b">
+                <tr>
+                  <th className="p-3">Nome</th>
+                  <th className="p-3 text-center">Perfil</th>
+                  <th className="p-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {Object.values(systemUsers).map(u => {
+                  if(!u) return null;
+                  return (
+                  <tr key={u.id} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold text-slate-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                          {u.avatar}
                         </div>
+                        {editingUserId === u.id ? (
+                          <input type="text" value={editingUserName} onChange={e => setEditingUserName(e.target.value)} className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs" autoFocus />
+                        ) : (
+                          <span>{u.nome}</span>
+                        )}
                       </div>
-                    ))}
-                    <div className="pt-6 flex justify-end border-t border-slate-200">
-                      <button type="submit" className="bg-rose-700 text-white font-bold px-8 py-4 rounded-xl hover:bg-rose-800 transition shadow-lg text-lg flex items-center gap-2">
-                        <Check className="w-6 h-6"/> Enviar Respostas Oficialmente
-                      </button>
-                    </div>
-                  </>
-                )}
-              </form>
-            )}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${u.role === 'admin' ? 'bg-slate-800 text-white' : u.role === 'professor' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right whitespace-nowrap">
+                      {editingUserId === u.id ? (
+                        <>
+                          <button onClick={() => handleSaveEditedUser(u.id)} className="text-emerald-600 hover:text-emerald-800 p-2" title="Salvar"><Check className="w-4 h-4 inline"/></button>
+                          <button onClick={handleCancelEditUser} className="text-slate-400 hover:text-slate-600 p-2" title="Cancelar"><X className="w-4 h-4 inline"/></button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleStartEditUser(u)} className="text-slate-400 hover:text-purple-600 p-2" title="Editar Nome"><Edit2 className="w-4 h-4 inline"/></button>
+                          {u.id !== 'admin1' && (
+                            <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700 p-2" title="Excluir"><Trash2 className="w-4 h-4 inline"/></button>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )})}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
-  // ==========================================
-  // RENDERIZAÇÕES PRINCIPAIS DAS TELAS
-  // ==========================================
-  // (Reaproveitamento das telas UserHome, AdminUsers, AdminDashboard, Participants, Grades, Attendance, Home, Modal)
+  const renderAdminDashboard = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-teal-50 text-teal-700 rounded-xl"><Shield className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Governança Acadêmica - COREMU</h2>
+          <p className="text-sm text-slate-500 mt-1">Crie disciplinas e gerencie as matrizes ativas na Nuvem.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Book className="w-5 h-5 text-teal-600"/> Abrir Nova Disciplina</h3>
+          <form onSubmit={handleCreateCourse} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Código</label>
+              <input type="text" required value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)} placeholder="Ex: RMAB001" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Nome da Disciplina</label>
+              <input type="text" required value={newCourseName} onChange={e => setNewCourseName(e.target.value)} placeholder="Ex: Saúde Coletiva" className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Professor Titular</label>
+              <select required value={newCourseProfId} onChange={e => setNewCourseProfId(e.target.value)} className="w-full mt-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+                <option value="">Selecione...</option>
+                {Object.values(systemUsers).filter(u => u && u.role === 'professor').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </div>
+            <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition flex items-center justify-center gap-2">
+              <Plus className="w-4 h-4"/> Salvar Disciplina
+            </button>
+          </form>
+        </div>
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Layout className="w-5 h-5 text-blue-600"/> Matriz Curricular Global</h3>
+          {courses.length === 0 ? (
+            <div className="text-center p-8 border border-dashed rounded-xl bg-slate-50 text-slate-500">Nenhuma disciplina ativa.</div>
+          ) : (
+            <div className="space-y-3">
+              {courses.map(c => {
+                if(!c) return null;
+                return (
+                <div key={c.id} className="p-4 border border-slate-200 rounded-xl hover:shadow-md transition bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">{c.codigo}</span>
+                    <h4 className="font-bold text-slate-800 mt-1">{c.nome}</h4>
+                    <p className="text-xs text-slate-500 mt-1">Professor: <strong>{systemUsers[c.professorId]?.nome || 'Não definido'}</strong></p>
+                    <p className="text-xs text-slate-400">{Array.isArray(courseStudents[c.id]) ? courseStudents[c.id].length : 0} aluno(s) matriculado(s)</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { setActiveCourseId(c.id); setCurrentView('participants'); }} className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-100 flex items-center gap-2">
+                      <Layout className="w-3.5 h-3.5"/> Abrir
+                    </button>
+                    <button onClick={() => handleDeleteCourse(c.id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100">
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              )})}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderParticipants = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+        <div className="p-3 bg-blue-50 text-blue-700 rounded-xl"><Users className="w-8 h-8"/></div>
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Participantes da Disciplina</h2>
+          <p className="text-sm text-slate-500 mt-1">Visualize e gerencie os residentes matriculados nesta turma.</p>
+        </div>
+      </div>
+
+      {isEditing && (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm print:hidden">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-teal-600"/> Matricular Novo Residente</h3>
+          <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="flex gap-3 max-w-lg">
+            <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+              <option value="">Selecione um residente cadastrado...</option>
+              {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+            <button type="submit" className="bg-teal-800 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2">
+              <Plus className="w-4 h-4"/> Matricular
+            </button>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-100 text-slate-600 font-bold border-b">
+            <tr>
+              <th className="p-4">Nome do Aluno</th>
+              <th className="p-4 text-center">Status</th>
+              {isEditing && <th className="p-4 text-right print:hidden">Ação</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {studentsInCourse.length === 0 ? (
+              <tr><td colSpan={isEditing ? 3 : 2} className="p-6 text-center text-slate-500">Nenhum aluno matriculado nesta disciplina.</td></tr>
+            ) : (
+              studentsInCourse.map(s => {
+                if(!s) return null;
+                return (
+                <tr key={s.studentId} className="hover:bg-slate-50">
+                  <td className="p-4 font-bold text-slate-800 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      {systemUsers[s.studentId]?.avatar || '??'}
+                    </div>
+                    {s.nome}
+                  </td>
+                  <td className="p-4 text-center"><span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-1 rounded font-bold uppercase">Matriculado</span></td>
+                  {isEditing && (
+                    <td className="p-4 text-right print:hidden">
+                      <button onClick={() => deleteStudent(s.studentId)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4 inline"/></button>
+                    </td>
+                  )}
+                </tr>
+              )})
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderEmptyState = () => (
+    <div className="flex-1 flex items-center justify-center h-[60vh] animate-fade-in">
+      <div className="text-center p-12 max-w-sm">
+        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Shield className="w-10 h-10 text-slate-300"/>
+        </div>
+        <h2 className="text-2xl font-black text-slate-700">Acesso Restrito</h2>
+        <p className="text-slate-500 mt-2 text-sm leading-relaxed">Você ainda não possui disciplinas ativas ou não foi matriculado em nenhuma turma no semestre atual.</p>
+      </div>
+    </div>
+  );
 
   const renderCourseHome = () => (
     <div className="animate-fade-in relative">
       
-      {/* MODAL DE ADICIONAR ITEM */}
       {activeSectionForNewItem && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in flex flex-col h-[90vh]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in flex flex-col h-auto max-h-[95vh]">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <h3 className="font-black text-slate-800">Adicionar atividade ou recurso</h3>
               <button onClick={() => setActiveSectionForNewItem(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5"/></button>
@@ -791,18 +774,18 @@ function LmsEnterprisePortal() {
                   ) : newItemType === 'NativeExam' ? (
                     <div className="bg-rose-50 text-rose-800 p-4 rounded-lg text-sm font-medium border border-rose-200 flex items-center gap-3">
                       <ClipboardList className="w-8 h-8 shrink-0 text-rose-500"/>
-                      A prova será criada vazia. Após salvar, clique no botão "Configurar Prova Oficial" no mural para adicionar as perguntas e o gabarito.
+                      A prova será criada vazia. Após salvar, clique em "Configurar Prova Oficial" na tela principal para adicionar as perguntas.
                     </div>
                   ) : newItemType === 'MessageSquare' ? (
                     <div className="bg-purple-50 text-purple-800 p-4 rounded-lg text-sm font-medium border border-purple-200 flex items-center gap-3">
                       <MessageSquare className="w-8 h-8 shrink-0 text-purple-500"/>
-                      O Fórum de Discussão será ativado e permitirá a criação de Tópicos e Respostas (Estilo phpBB) entre professores e alunos.
+                      O Fórum de Discussão será ativado no formato phpBB para criação de Tópicos e Respostas da turma.
                     </div>
                   ) : newItemType === 'TextContent' ? (
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-amber-600 uppercase block">Conteúdo da Página (WYSIWYG Editor)</label>
                       <div className="border border-slate-300 rounded-lg overflow-hidden bg-white flex flex-col h-64 shadow-inner">
-                        <div className="bg-slate-100 border-b border-slate-300 p-2 flex gap-1 items-center shrink-0">
+                        <div className="bg-slate-100 border-b border-slate-300 p-2 flex gap-1 items-center shrink-0 flex-wrap">
                           <button type="button" onClick={() => execCommand('bold')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Negrito"><Bold className="w-4 h-4"/></button>
                           <button type="button" onClick={() => execCommand('italic')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Itálico"><Italic className="w-4 h-4"/></button>
                           <button type="button" onClick={() => execCommand('underline')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Sublinhado"><Underline className="w-4 h-4"/></button>
@@ -812,12 +795,7 @@ function LmsEnterprisePortal() {
                           <div className="w-px h-5 bg-slate-300 mx-1"></div>
                           <button type="button" onClick={() => execCommand('insertUnorderedList')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Lista"><List className="w-4 h-4"/></button>
                         </div>
-                        <div 
-                          ref={editorRef}
-                          contentEditable 
-                          className="p-4 outline-none flex-1 overflow-y-auto prose max-w-none prose-sm"
-                          placeholder="Digite o conteúdo da aula aqui..."
-                        ></div>
+                        <div ref={editorRef} contentEditable className="p-4 outline-none flex-1 overflow-y-auto prose max-w-none prose-sm" placeholder="Digite o conteúdo da aula aqui..."></div>
                       </div>
                     </div>
                   ) : null}
@@ -825,9 +803,7 @@ function LmsEnterprisePortal() {
 
                 <div className="pt-4 border-t border-slate-100 shrink-0">
                   <button type="submit" disabled={isUploading} className="w-full bg-teal-800 text-white font-bold p-3.5 rounded-lg hover:bg-teal-900 transition shadow-md disabled:bg-slate-400">
-                    {isUploading ? (
-                      <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Enviando arquivo...</span>
-                    ) : 'Salvar e Publicar no Mural'}
+                    {isUploading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Enviando arquivo...</span> : 'Salvar e Publicar no Mural'}
                   </button>
                 </div>
               </form>
@@ -835,27 +811,6 @@ function LmsEnterprisePortal() {
           </div>
         </div>
       )}
-
-      {/* MODAL DE LEITURA DE TEXTO (TEXTCONTENT) */}
-      {readingItem && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
-            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><AlignLeft className="w-5 h-5"/></div>
-                <h2 className="font-black text-xl text-slate-800">{readingItem.title}</h2>
-              </div>
-              <button onClick={() => setReadingItem(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6"/></button>
-            </div>
-            <div className="p-6 sm:p-10 overflow-y-auto bg-white flex-1">
-              <div className="prose prose-slate max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: readingItem.textContent }}></div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeForumItem && renderForumModal()}
-      {activeExamItem && renderExamModal()}
 
       {isEditing && (
         <div onClick={addSection} className="mb-6 border border-dashed border-teal-400 rounded-lg p-4 text-center bg-teal-50/50 hover:bg-teal-100 cursor-pointer transition text-teal-700 font-bold text-sm flex items-center justify-center gap-2 shadow-sm print:hidden">
@@ -921,7 +876,7 @@ function LmsEnterprisePortal() {
                             )}
                             {item.type === 'Link' && item.url && !item.fileName && (
                               <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
-                                <Link className="w-3.5 h-3.5"/> Abrir Link Externo
+                                <Link className="w-3.5 h-3.5"/> Acessar Link Externo
                               </a>
                             )}
                             {item.type === 'TextContent' && (
@@ -955,6 +910,152 @@ function LmsEnterprisePortal() {
           )}
         </div>
       )})}
+    </div>
+  );
+
+  const renderGradebook = () => (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
+      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
+        <div>
+          <h3 className="font-bold text-lg text-slate-800">Relatório de Notas</h3>
+          <p className="text-xs text-slate-500 print:hidden">Cálculo e consolidação do boletim.</p>
+        </div>
+        {(role === 'professor' || role === 'admin') && (
+          <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+            <Printer className="w-4 h-4"/> Gerar PDF Oficial
+          </button>
+        )}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-800 text-white border-b border-slate-300 print:bg-slate-200 print:text-slate-800 print:border-b-2">
+              <th className="p-3 font-semibold w-1/4">Estudante</th>
+              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GA</th>
+              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GB</th>
+              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GC</th>
+              <th className="p-3 font-semibold bg-teal-800 print:bg-slate-300 print:text-slate-900 text-center">Total</th>
+              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">Status</th>
+              <th className="p-3 font-semibold">Feedback Contínuo</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {visibleGradesAndAttendance.length === 0 ? (
+              <tr><td colSpan="7" className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso às notas.</td></tr>
+            ) : (
+              visibleGradesAndAttendance.map((aluno, idx) => {
+                if(!aluno) return null;
+                const total = ((aluno.ga||0) + (aluno.gb||0) + (aluno.gc||0)).toFixed(2);
+                const isApproved = total >= 14 || (aluno.gc > 0 && total >= 15);
+
+                return (
+                  <tr key={aluno.studentId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                    <td className="p-3 font-bold text-slate-700 border-r border-slate-200">{aluno.nome}</td>
+                    <td className="p-2 border-r border-slate-200 text-center">
+                      {isEditing ? <input type="number" step="0.1" value={aluno.ga||''} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.ga}</span>}
+                    </td>
+                    <td className="p-2 border-r border-slate-200 text-center">
+                      {isEditing ? <input type="number" step="0.1" value={aluno.gb||''} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gb}</span>}
+                    </td>
+                    <td className="p-2 border-r border-slate-200 text-center">
+                      {isEditing ? <input type="number" step="0.1" value={aluno.gc||''} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gc}</span>}
+                    </td>
+                    <td className="p-3 border-r border-slate-200 text-center font-black bg-slate-100 print:bg-white text-base">{total}</td>
+                    <td className="p-3 border-r border-slate-200 text-center">
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider print:border ${isApproved ? 'bg-emerald-100 text-emerald-800 print:border-emerald-500' : 'bg-red-100 text-red-800 print:border-red-500'}`}>
+                        {isApproved ? 'Aprovado' : 'Em Exame'}
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      {isEditing ? <input type="text" value={aluno.feedback||''} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="text-xs text-slate-500 italic">{aluno.feedback || "Sem feedback no momento."}</span>}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderAttendance = () => (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
+      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
+        <div>
+          <h3 className="font-bold text-lg text-slate-800">Diário de Classe - Frequência Oficial</h3>
+          <p className="text-xs text-slate-500 print:hidden">Marque a caixa para indicar "Falta". Aulas desmarcadas equivalem a Presença.</p>
+        </div>
+        <div className="flex gap-2">
+          {isEditing && (
+            <button onClick={handleAddAttendanceCol} className="bg-teal-100 text-teal-800 border border-teal-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-200 transition print:hidden">
+              <Plus className="w-4 h-4"/> Nova Aula
+            </button>
+          )}
+          <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+            <Printer className="w-4 h-4"/> Gerar PDF Oficial
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-200 text-slate-700 print:bg-slate-200 print:border-b-2">
+              <th rowSpan="2" className="p-3 border border-slate-300 font-bold min-w-[200px]">Estudante</th>
+              <th rowSpan="2" className="p-3 border border-slate-300 font-bold text-center">Faltas Computadas</th>
+              {currentAttendanceCols.length > 0 ? (
+                <th colSpan={currentAttendanceCols.length} className="p-2 border border-slate-300 font-bold text-center bg-slate-300 print:bg-slate-300">Dias de Aula Registrados</th>
+              ) : (
+                <th rowSpan="2" className="p-3 border border-slate-300 font-bold text-center text-slate-400 italic">Nenhuma aula registrada</th>
+              )}
+            </tr>
+            {currentAttendanceCols.length > 0 && (
+              <tr className="bg-slate-100 text-slate-700 text-center text-[10px]">
+                {currentAttendanceCols.map((col, index) => (
+                  <th key={col.id} className="p-2 border border-slate-300 relative group min-w-[80px]">
+                    {col.label}
+                    {isEditing && (
+                      <button onClick={() => handleRemoveAttendanceCol(index)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition print:hidden shadow-sm">
+                        <X className="w-3 h-3"/>
+                      </button>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            )}
+          </thead>
+          <tbody>
+            {visibleGradesAndAttendance.length === 0 ? (
+              <tr><td colSpan={2 + currentAttendanceCols.length} className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso ao diário.</td></tr>
+            ) : (
+              visibleGradesAndAttendance.map((aluno) => {
+                if(!aluno) return null;
+                const faltasArray = aluno.faltas || new Array(currentAttendanceCols.length).fill(false);
+                const qtdeFaltas = faltasArray.filter(f => f).length;
+                return (
+                  <tr key={aluno.studentId} className="hover:bg-slate-50 print:border-b print:border-slate-200">
+                    <td className="p-3 border border-slate-200 font-bold text-slate-800">{aluno.nome}</td>
+                    <td className="p-3 border border-slate-200 text-center">
+                      <span className={`font-black text-sm ${qtdeFaltas > 1 ? 'text-red-600' : 'text-slate-700'}`}>{qtdeFaltas}</span>
+                    </td>
+                    {currentAttendanceCols.map((col, i) => {
+                      const isFalta = faltasArray[i];
+                      return (
+                        <td key={col.id} className={`p-2 border border-slate-200 text-center transition-colors ${isEditing ? 'cursor-pointer hover:opacity-80' : ''} ${isFalta ? 'bg-slate-800 print:bg-white print:text-black' : 'bg-emerald-700 print:bg-white print:text-black'}`} onClick={() => isEditing && toggleAttendance(aluno.studentId, i)}>
+                          <div className="print:hidden">
+                            <input type="checkbox" checked={!isFalta} readOnly className="w-4 h-4 rounded text-white pointer-events-none" />
+                          </div>
+                          <div className="hidden print:block font-black text-sm">{isFalta ? 'F' : '•'}</div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 
