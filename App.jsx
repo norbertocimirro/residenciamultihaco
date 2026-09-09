@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronRight, Plus, FileText, 
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
-  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check
+  Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, Edit2, Check, Loader2, Printer
 } from 'lucide-react';
 
 // ==========================================
@@ -61,7 +61,7 @@ class ErrorBoundary extends React.Component {
 }
 
 // ==========================================
-// HOOK DE SINCRONIZAÇÃO EM TEMPO REAL (NUVEM)
+// HOOK DE SINCRONIZAÇÃO EM TEMPO REAL
 // ==========================================
 const useFirestoreDB = (docName, initialValue) => {
   const [data, setData] = useState(initialValue);
@@ -110,7 +110,7 @@ const useFirestoreDB = (docName, initialValue) => {
 // ==========================================
 function LmsEnterprisePortal() {
   
-  // 1. DADOS DO BANCO
+  // 1. DADOS DO BANCO (Firestore)
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
@@ -135,11 +135,17 @@ function LmsEnterprisePortal() {
     'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }]
   });
 
+  // NOVA TABELA: Colunas Dinâmicas de Frequência
+  const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', {
+    'c1': [{ id: 'col1', label: '07/07 - 07:30' }, { id: 'col2', label: '07/07 - 08:20' }, { id: 'col3', label: '07/07 - 09:10' }]
+  });
+
   // Tratamento de Segurança das Variáveis
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
   const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
+  const attendanceCols = typeof dbAttendanceCols === 'object' && dbAttendanceCols !== null ? dbAttendanceCols : {};
 
   // 2. ESTADOS DA INTERFACE
   const [activeUserId, setActiveUserId] = useState('admin1');
@@ -152,9 +158,11 @@ function LmsEnterprisePortal() {
   const [activeCourseId, setActiveCourseId] = useState(null);
   const [expandedModules, setExpandedModules] = useState({});
 
-  const canEdit = editMode && (role === 'admin' || role === 'professor');
+  // 🔥 A CORREÇÃO DA TRAVA DO BOTÃO:
+  const hasEditPermission = role === 'admin' || role === 'professor';
+  const isEditing = editMode && hasEditPermission;
 
-  // 3. ESTADOS DOS MODAIS E FORMULÁRIOS
+  // 3. ESTADOS DOS MODAIS
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
@@ -171,7 +179,7 @@ function LmsEnterprisePortal() {
   const [newStudentId, setNewStudentId] = useState('');
 
   // Tela de Loading enquanto o Firebase Baixa os Dados
-  const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded;
+  const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded && colsLoaded;
   if (!isDbReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
@@ -182,7 +190,7 @@ function LmsEnterprisePortal() {
     );
   }
 
-  // Lógica de Visão de Cursos
+  // Filtragem e Troca de Usuários
   const visibleCourses = courses.filter(c => {
     if (!c) return false;
     if (role === 'admin') return true;
@@ -208,7 +216,9 @@ function LmsEnterprisePortal() {
     }
   };
 
-  // Funções de Gestão de Usuários
+  // ==========================================
+  // FUNÇÕES DE GESTÃO DE USUÁRIOS E CURSOS
+  // ==========================================
   const handleCreateUser = (e) => {
     e.preventDefault();
     if (!newUserName) return;
@@ -251,7 +261,6 @@ function LmsEnterprisePortal() {
     setEditingUserName('');
   };
 
-  // Funções de Gestão de Disciplinas
   const handleCreateCourse = (e) => {
     e.preventDefault();
     if (!newCourseCode || !newCourseName || !newCourseProfId) return;
@@ -259,6 +268,7 @@ function LmsEnterprisePortal() {
     setDbCourses([...courses, { id: newId, codigo: newCourseCode, nome: newCourseName, professorId: newCourseProfId }]);
     setDbContents({ ...courseContents, [newId]: defaultModules });
     setDbStudents({ ...courseStudents, [newId]: [] });
+    setDbAttendanceCols({ ...attendanceCols, [newId]: [] }); // Inicializa sem aulas
     setNewCourseCode(''); setNewCourseName(''); setNewCourseProfId('');
     alert('Disciplina criada com sucesso!');
   };
@@ -277,11 +287,16 @@ function LmsEnterprisePortal() {
     setDbCourses(courses.map(c => c?.id === activeCourseId ? { ...c, [field]: value } : c));
   };
 
-  // Funções de Matrícula (Admin e Professor)
   const handleEnrollStudent = (e, courseId) => {
     e.preventDefault();
     if (!newStudentId) return;
-    const newStudentData = { studentId: newStudentId, ga: 0, gb: 0, gc: 0, faltas: [false, false, false], feedback: "" };
+    const currentColsLength = (attendanceCols[courseId] || []).length;
+    // O aluno novo entra com as faltas zeradas baseado na quantidade de aulas que já existem
+    const newStudentData = { 
+      studentId: newStudentId, ga: 0, gb: 0, gc: 0, 
+      faltas: new Array(currentColsLength).fill(false), 
+      feedback: "" 
+    };
     const currentEnrolled = Array.isArray(courseStudents[courseId]) ? courseStudents[courseId] : [];
     setDbStudents({ ...courseStudents, [courseId]: [...currentEnrolled, newStudentData] });
     setNewStudentId('');
@@ -293,8 +308,45 @@ function LmsEnterprisePortal() {
     }
   };
 
+  // ==========================================
+  // FUNÇÕES DE FREQUÊNCIA (NOVAS)
+  // ==========================================
+  const handleAddAttendanceCol = () => {
+    const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00 às 10:00):");
+    if (!label) return;
+    
+    const currentCols = attendanceCols[activeCourseId] || [];
+    const newCols = [...currentCols, { id: `col_${Date.now()}`, label }];
+    setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
+
+    // Adiciona uma "presença padrão (false)" no final do array de faltas de todos os alunos
+    const updatedStudents = rawActiveStudents.map(s => ({
+      ...s,
+      faltas: [...(s.faltas || []), false]
+    }));
+    setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
+  };
+
+  const handleRemoveAttendanceCol = (colIndex) => {
+    if (!window.confirm('Deseja excluir esta aula do registro de todos os alunos?')) return;
+    
+    const currentCols = attendanceCols[activeCourseId] || [];
+    const newCols = currentCols.filter((_, i) => i !== colIndex);
+    setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
+
+    // Remove o índice correspondente da matriz de faltas
+    const updatedStudents = rawActiveStudents.map(s => {
+      const newFaltas = [...(s.faltas || [])];
+      newFaltas.splice(colIndex, 1);
+      return { ...s, faltas: newFaltas };
+    });
+    setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
+  };
+
+  // Variáveis da Disciplina Ativa
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
   const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
+  const currentAttendanceCols = attendanceCols[activeCourseId] || [];
   const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
 
   const studentsInCourse = rawActiveStudents.map(enrollment => ({
@@ -310,7 +362,9 @@ function LmsEnterprisePortal() {
     u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id)
   );
 
-  // Funções de Edição de Módulos e Anexos
+  // ==========================================
+  // FUNÇÕES DE CONTEÚDO E ANEXOS
+  // ==========================================
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
 
@@ -352,12 +406,10 @@ function LmsEnterprisePortal() {
         };
       }
       return sec;
-    })); // <--- O PARÊNTESE QUE FALTAVA FOI CORRIGIDO AQUI!
-    
+    }));
     setActiveSectionForNewItem(null); 
   };
 
-  // Funções de Notas e Presença
   const updateGrade = (studentId, field, value) => {
     setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
   };
@@ -373,6 +425,10 @@ function LmsEnterprisePortal() {
         }
         return s;
     })});
+  };
+
+  const handlePrintPDF = () => {
+    window.print();
   };
 
   const getIconComponent = (type) => {
@@ -480,13 +536,7 @@ function LmsEnterprisePortal() {
                           {u.avatar}
                         </div>
                         {editingUserId === u.id ? (
-                          <input 
-                            type="text" 
-                            value={editingUserName} 
-                            onChange={e => setEditingUserName(e.target.value)} 
-                            className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs"
-                            autoFocus
-                          />
+                          <input type="text" value={editingUserName} onChange={e => setEditingUserName(e.target.value)} className="border border-purple-300 px-2 py-1 rounded focus:ring-2 focus:ring-purple-500 outline-none w-full max-w-xs" autoFocus />
                         ) : (
                           <span>{u.nome}</span>
                         )}
@@ -598,12 +648,12 @@ function LmsEnterprisePortal() {
         </div>
       </div>
 
-      {canEdit && (
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      {isEditing && (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm print:hidden">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-teal-600"/> Matricular Novo Residente</h3>
           <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="flex gap-3 max-w-lg">
             <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
-              <option value="">Selecione um residente cadastrado no sistema...</option>
+              <option value="">Selecione um residente cadastrado...</option>
               {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
             </select>
             <button type="submit" className="bg-teal-800 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2">
@@ -619,12 +669,12 @@ function LmsEnterprisePortal() {
             <tr>
               <th className="p-4">Nome do Aluno</th>
               <th className="p-4 text-center">Status</th>
-              {canEdit && <th className="p-4 text-right">Ação</th>}
+              {isEditing && <th className="p-4 text-right print:hidden">Ação</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {studentsInCourse.length === 0 ? (
-              <tr><td colSpan={canEdit ? 3 : 2} className="p-6 text-center text-slate-500">Nenhum aluno matriculado nesta disciplina.</td></tr>
+              <tr><td colSpan={isEditing ? 3 : 2} className="p-6 text-center text-slate-500">Nenhum aluno matriculado nesta disciplina.</td></tr>
             ) : (
               studentsInCourse.map(s => {
                 if(!s) return null;
@@ -637,8 +687,8 @@ function LmsEnterprisePortal() {
                     {s.nome}
                   </td>
                   <td className="p-4 text-center"><span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-1 rounded font-bold uppercase">Matriculado</span></td>
-                  {canEdit && (
-                    <td className="p-4 text-right">
+                  {isEditing && (
+                    <td className="p-4 text-right print:hidden">
                       <button onClick={() => deleteStudent(s.studentId)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4 inline"/></button>
                     </td>
                   )}
@@ -651,25 +701,11 @@ function LmsEnterprisePortal() {
     </div>
   );
 
-  const renderEmptyState = () => (
-    <div className="flex-1 flex items-center justify-center h-[60vh] animate-fade-in">
-      <div className="text-center p-12 max-w-sm">
-        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Shield className="w-10 h-10 text-slate-300"/>
-        </div>
-        <h2 className="text-2xl font-black text-slate-700">Acesso Restrito</h2>
-        <p className="text-slate-500 mt-2 text-sm leading-relaxed">
-          Você ainda não possui disciplinas ativas ou não foi matriculado em nenhuma turma no semestre atual.
-        </p>
-      </div>
-    </div>
-  );
-
   const renderCourseHome = () => (
     <div className="animate-fade-in relative">
       
       {activeSectionForNewItem && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="font-black text-slate-800">Adicionar atividade ou recurso</h3>
@@ -680,7 +716,6 @@ function LmsEnterprisePortal() {
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome do Recurso</label>
                 <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos" className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
               </div>
-              
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tipo de Material</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -711,7 +746,6 @@ function LmsEnterprisePortal() {
                   )}
                 </div>
               )}
-
               <div className="pt-2">
                 <button type="submit" className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md">
                   Salvar e Adicionar ao Curso
@@ -722,8 +756,8 @@ function LmsEnterprisePortal() {
         </div>
       )}
 
-      {canEdit && (
-        <div onClick={addSection} className="mb-6 border border-dashed border-teal-400 rounded-lg p-4 text-center bg-teal-50/50 hover:bg-teal-100 cursor-pointer transition text-teal-700 font-bold text-sm flex items-center justify-center gap-2 shadow-sm">
+      {isEditing && (
+        <div onClick={addSection} className="mb-6 border border-dashed border-teal-400 rounded-lg p-4 text-center bg-teal-50/50 hover:bg-teal-100 cursor-pointer transition text-teal-700 font-bold text-sm flex items-center justify-center gap-2 shadow-sm print:hidden">
           <Plus className="w-5 h-5"/> Adicionar novo Tópico / Módulo
         </div>
       )}
@@ -738,20 +772,20 @@ function LmsEnterprisePortal() {
       {activeContent.map(section => {
         if(!section) return null;
         return(
-        <div key={section.id} className={`mb-6 rounded-lg border ${section.borderColor || 'border-slate-200'} overflow-hidden shadow-sm bg-white`}>
+        <div key={section.id} className={`mb-6 rounded-lg border ${section.borderColor || 'border-slate-200'} overflow-hidden shadow-sm bg-white print:break-inside-avoid`}>
           <div className={`flex items-center justify-between p-3 ${section.bgColor || 'bg-slate-50'} border-b ${section.borderColor || 'border-slate-200'}`}>
             <div className="flex items-center gap-3 w-full">
-              <button onClick={() => toggleModule(section.id)} className="p-1 hover:bg-slate-200 rounded">
+              <button onClick={() => toggleModule(section.id)} className="p-1 hover:bg-slate-200 rounded print:hidden">
                 {expandedModules[section.id] !== false ? <ChevronDown className="w-5 h-5 text-slate-500"/> : <ChevronRight className="w-5 h-5 text-slate-500"/>}
               </button>
-              {canEdit ? (
+              {isEditing ? (
                 <input type="text" value={section.title || ''} onChange={(e) => updateSectionTitle(section.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-base font-bold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
               ) : (
                 <h3 className="text-base font-bold text-slate-800 cursor-pointer" onClick={() => toggleModule(section.id)}>{section.title}</h3>
               )}
             </div>
-            {canEdit && (
-              <button onClick={() => deleteSection(section.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
+            {isEditing && (
+              <button onClick={() => deleteSection(section.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-2 print:hidden"><Trash2 className="w-4 h-4" /></button>
             )}
           </div>
 
@@ -763,10 +797,10 @@ function LmsEnterprisePortal() {
                 return (
                   <div key={item.id} className="flex items-start justify-between p-4 border-b border-slate-100 hover:bg-slate-50 group">
                     <div className="flex items-start gap-3 w-full">
-                      {canEdit && <GripVertical className="w-4 h-4 text-slate-300 cursor-move mt-1" />}
+                      {isEditing && <GripVertical className="w-4 h-4 text-slate-300 cursor-move mt-1 print:hidden" />}
                       <IconComponent className={`w-5 h-5 ${item.color || 'text-slate-500'} flex-shrink-0 mt-0.5`} />
                       <div className="flex-1">
-                        {canEdit ? (
+                        {isEditing ? (
                           <input type="text" value={item.title || ''} onChange={(e) => updateItemTitle(section.id, item.id, e.target.value)} className="bg-white border border-slate-300 rounded px-2 py-1 text-sm font-semibold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none" />
                         ) : (
                           <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
@@ -777,21 +811,21 @@ function LmsEnterprisePortal() {
                             <Paperclip className="w-3 h-3"/> {item.fileName}
                           </div>
                         )}
-                        {item.url && !canEdit && (
-                          <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline mt-1 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
+                        {item.url && !isEditing && (
+                          <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline mt-1 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100 print:hidden">
                             <Link className="w-3 h-3"/> Acessar Link Externo
                           </a>
                         )}
                       </div>
                     </div>
-                    {canEdit && (
-                      <button onClick={() => deleteItem(section.id, item.id)} className="p-1 text-slate-300 hover:text-red-500 transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
+                    {isEditing && (
+                      <button onClick={() => deleteItem(section.id, item.id)} className="p-1 text-slate-300 hover:text-red-500 transition-colors ml-2 print:hidden"><Trash2 className="w-4 h-4" /></button>
                     )}
                   </div>
                 );
               })}
-              {canEdit && (
-                <div className="p-3 border-t border-dashed border-slate-300 bg-slate-50 flex justify-end">
+              {isEditing && (
+                <div className="p-3 border-t border-dashed border-slate-300 bg-slate-50 flex justify-end print:hidden">
                   <button onClick={() => handleOpenAddItemModal(section.id)} className="flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-3 py-1.5 rounded-md border border-teal-100 shadow-sm transition hover:shadow-md">
                     <Plus className="w-4 h-4"/> Adicionar material ou recurso
                   </button>
@@ -805,28 +839,26 @@ function LmsEnterprisePortal() {
   );
 
   const renderGradebook = () => (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in">
-      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
+      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
         <div>
           <h3 className="font-bold text-lg text-slate-800">Relatório de Notas</h3>
-          <p className="text-xs text-slate-500">Cálculo e consolidação do boletim.</p>
+          <p className="text-xs text-slate-500 print:hidden">Cálculo e consolidação do boletim.</p>
         </div>
-        {(role === 'professor' || role === 'admin') && (
-          <button className="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2 hover:bg-slate-300">
-            <Download className="w-4 h-4"/> Exportar Excel
-          </button>
-        )}
+        <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+          <Printer className="w-4 h-4"/> Gerar PDF Oficial
+        </button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-800 text-white border-b border-slate-300">
+            <tr className="bg-slate-800 text-white border-b border-slate-300 print:bg-slate-200 print:text-slate-800 print:border-b-2">
               <th className="p-3 font-semibold w-1/4">Estudante</th>
-              <th className="p-3 font-semibold border-x border-slate-600 text-center">GA</th>
-              <th className="p-3 font-semibold border-x border-slate-600 text-center">GB</th>
-              <th className="p-3 font-semibold border-x border-slate-600 text-center">GC</th>
-              <th className="p-3 font-semibold bg-teal-800 text-center">Total</th>
-              <th className="p-3 font-semibold border-x border-slate-600 text-center">Status</th>
+              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GA</th>
+              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GB</th>
+              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">GC</th>
+              <th className="p-3 font-semibold bg-teal-800 print:bg-slate-300 print:text-slate-900 text-center">Total</th>
+              <th className="p-3 font-semibold border-x border-slate-600 print:border-slate-300 text-center">Status</th>
               <th className="p-3 font-semibold">Feedback Contínuo</th>
             </tr>
           </thead>
@@ -843,22 +875,22 @@ function LmsEnterprisePortal() {
                   <tr key={aluno.studentId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     <td className="p-3 font-bold text-slate-700 border-r border-slate-200">{aluno.nome}</td>
                     <td className="p-2 border-r border-slate-200 text-center">
-                      {canEdit ? <input type="number" step="0.1" value={aluno.ga||''} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.ga}</span>}
+                      {isEditing ? <input type="number" step="0.1" value={aluno.ga||''} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.ga}</span>}
                     </td>
                     <td className="p-2 border-r border-slate-200 text-center">
-                      {canEdit ? <input type="number" step="0.1" value={aluno.gb||''} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gb}</span>}
+                      {isEditing ? <input type="number" step="0.1" value={aluno.gb||''} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gb}</span>}
                     </td>
                     <td className="p-2 border-r border-slate-200 text-center">
-                      {canEdit ? <input type="number" step="0.1" value={aluno.gc||''} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gc}</span>}
+                      {isEditing ? <input type="number" step="0.1" value={aluno.gc||''} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-14 text-center border p-1.5 rounded font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="font-bold text-slate-700">{aluno.gc}</span>}
                     </td>
-                    <td className="p-3 border-r border-slate-200 text-center font-black bg-slate-100 text-base">{total}</td>
+                    <td className="p-3 border-r border-slate-200 text-center font-black bg-slate-100 print:bg-white text-base">{total}</td>
                     <td className="p-3 border-r border-slate-200 text-center">
-                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider print:border ${isApproved ? 'bg-emerald-100 text-emerald-800 print:border-emerald-500' : 'bg-red-100 text-red-800 print:border-red-500'}`}>
                         {isApproved ? 'Aprovado' : 'Em Exame'}
                       </span>
                     </td>
                     <td className="p-2">
-                      {canEdit ? <input type="text" value={aluno.feedback||''} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="text-xs text-slate-500 italic">{aluno.feedback || "Sem feedback no momento."}</span>}
+                      {isEditing ? <input type="text" value={aluno.feedback||''} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Parecer..." className="w-full border p-1.5 rounded text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white" /> : <span className="text-xs text-slate-500 italic">{aluno.feedback || "Sem feedback no momento."}</span>}
                     </td>
                   </tr>
                 );
@@ -871,43 +903,78 @@ function LmsEnterprisePortal() {
   );
 
   const renderAttendance = () => (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in">
-      <div className="p-4 border-b border-slate-200 bg-slate-50">
-        <h3 className="font-bold text-lg text-slate-800">Diário de Classe - Frequência</h3>
-        <p className="text-xs text-slate-500">Verde = Presente | Preto = Falta. Somente docentes podem alterar as faltas.</p>
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
+      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
+        <div>
+          <h3 className="font-bold text-lg text-slate-800">Diário de Classe - Frequência Oficial</h3>
+          <p className="text-xs text-slate-500 print:hidden">Marque a caixa para indicar "Falta". Aulas desmarcadas equivalem a Presença.</p>
+        </div>
+        <div className="flex gap-2">
+          {isEditing && (
+            <button onClick={handleAddAttendanceCol} className="bg-teal-100 text-teal-800 border border-teal-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-200 transition print:hidden">
+              <Plus className="w-4 h-4"/> Nova Aula
+            </button>
+          )}
+          <button onClick={handlePrintPDF} className="bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+            <Printer className="w-4 h-4"/> Gerar PDF Oficial
+          </button>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-200 text-slate-700">
-              <th rowSpan="2" className="p-2 border border-slate-300 font-bold w-1/3">Estudante</th>
-              <th rowSpan="2" className="p-2 border border-slate-300 font-bold text-center">Faltas Computadas</th>
-              <th colSpan="3" className="p-2 border border-slate-300 font-bold text-center bg-slate-300">Aulas do Dia</th>
+            <tr className="bg-slate-200 text-slate-700 print:bg-slate-200 print:border-b-2">
+              <th rowSpan="2" className="p-3 border border-slate-300 font-bold min-w-[200px]">Estudante</th>
+              <th rowSpan="2" className="p-3 border border-slate-300 font-bold text-center">Faltas Computadas</th>
+              {currentAttendanceCols.length > 0 ? (
+                <th colSpan={currentAttendanceCols.length} className="p-2 border border-slate-300 font-bold text-center bg-slate-300 print:bg-slate-300">Dias de Aula Registrados</th>
+              ) : (
+                <th rowSpan="2" className="p-3 border border-slate-300 font-bold text-center text-slate-400 italic">Nenhuma aula registrada</th>
+              )}
             </tr>
-            <tr className="bg-slate-100 text-slate-700 text-center text-[10px]">
-              <th className="p-1 border border-slate-300">07:30 - 08:20</th>
-              <th className="p-1 border border-slate-300">08:20 - 09:10</th>
-              <th className="p-1 border border-slate-300">09:10 - 10:00</th>
-            </tr>
+            {currentAttendanceCols.length > 0 && (
+              <tr className="bg-slate-100 text-slate-700 text-center text-[10px]">
+                {currentAttendanceCols.map((col, index) => (
+                  <th key={col.id} className="p-2 border border-slate-300 relative group">
+                    {col.label}
+                    {isEditing && (
+                      <button onClick={() => handleRemoveAttendanceCol(index)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition print:hidden shadow-sm">
+                        <X className="w-3 h-3"/>
+                      </button>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            )}
           </thead>
           <tbody>
             {visibleGradesAndAttendance.length === 0 ? (
-              <tr><td colSpan="5" className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso ao diário.</td></tr>
+              <tr><td colSpan={2 + currentAttendanceCols.length} className="p-6 text-center text-slate-500 font-medium">Turma vazia ou sem acesso ao diário.</td></tr>
             ) : (
               visibleGradesAndAttendance.map((aluno) => {
                 if(!aluno) return null;
-                const qtdeFaltas = (aluno.faltas || []).filter(f => f).length;
+                const faltasArray = aluno.faltas || new Array(currentAttendanceCols.length).fill(false);
+                const qtdeFaltas = faltasArray.filter(f => f).length;
                 return (
-                  <tr key={aluno.studentId} className="hover:bg-slate-50">
-                    <td className="p-2 border border-slate-200 font-medium text-slate-800">{aluno.nome}</td>
-                    <td className="p-2 border border-slate-200 text-center">
+                  <tr key={aluno.studentId} className="hover:bg-slate-50 print:border-b print:border-slate-200">
+                    <td className="p-3 border border-slate-200 font-bold text-slate-800">{aluno.nome}</td>
+                    <td className="p-3 border border-slate-200 text-center">
                       <span className={`font-black text-sm ${qtdeFaltas > 1 ? 'text-red-600' : 'text-slate-700'}`}>{qtdeFaltas}</span>
                     </td>
-                    {(aluno.faltas || []).map((falta, i) => (
-                      <td key={i} className={`p-2 border border-slate-200 text-center transition-colors ${canEdit ? 'cursor-pointer hover:opacity-80' : ''} ${falta ? 'bg-slate-800' : 'bg-emerald-700'}`} onClick={() => canEdit && toggleAttendance(aluno.studentId, i)}>
-                        <input type="checkbox" checked={!falta} readOnly className="w-4 h-4 rounded text-white pointer-events-none" />
-                      </td>
-                    ))}
+                    {currentAttendanceCols.map((col, i) => {
+                      const isFalta = faltasArray[i];
+                      return (
+                        <td key={col.id} className={`p-2 border border-slate-200 text-center transition-colors ${isEditing ? 'cursor-pointer hover:opacity-80' : ''} ${isFalta ? 'bg-slate-800 print:bg-white print:text-black' : 'bg-emerald-700 print:bg-white print:text-black'}`} onClick={() => isEditing && toggleAttendance(aluno.studentId, i)}>
+                          {/* Em tela mostra checkbox. Na impressão mostra F ou P */}
+                          <div className="print:hidden">
+                            <input type="checkbox" checked={!isFalta} readOnly className="w-4 h-4 rounded text-white pointer-events-none" />
+                          </div>
+                          <div className="hidden print:block font-black text-sm">
+                            {isFalta ? 'F' : '•'}
+                          </div>
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })
@@ -919,9 +986,9 @@ function LmsEnterprisePortal() {
   );
 
   return (
-    <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-800 overflow-hidden">
+    <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-800 overflow-hidden print:bg-white print:h-auto print:overflow-visible">
       
-      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 text-slate-300 transition-all duration-300 flex flex-col flex-shrink-0 shadow-2xl z-20 relative`}>
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 text-slate-300 transition-all duration-300 flex flex-col flex-shrink-0 shadow-2xl z-20 relative print:hidden`}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
           {sidebarOpen && <span className="font-black text-white text-sm tracking-tight leading-tight">Portal <span className="text-teal-400">COREMU</span><br/>HACO</span>}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
@@ -1003,8 +1070,8 @@ function LmsEnterprisePortal() {
         )}
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shadow-sm z-10">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative print:overflow-visible">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shadow-sm z-10 print:hidden">
           <div className="flex items-center gap-4 flex-1">
             <div className="hidden sm:flex items-center text-sm font-semibold text-slate-600 gap-6">
               <span className="text-teal-800 font-bold py-5">Portal COREMU HACO</span>
@@ -1023,12 +1090,11 @@ function LmsEnterprisePortal() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#f8f9fa]">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#f8f9fa] print:bg-white print:p-0 print:overflow-visible">
           <div className="max-w-5xl mx-auto">
             
             {currentView === 'user_home' && renderUserHome()}
             {currentView === 'admin_dashboard' && renderAdminDashboard()}
-            {currentView === 'admin_students' && renderAdminStudents()}
             {currentView === 'admin_users' && renderAdminUsers()}
             {currentView === 'empty_state' && renderEmptyState()}
 
@@ -1036,13 +1102,13 @@ function LmsEnterprisePortal() {
               <>
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
                   <div className="flex-1">
-                    {canEdit ? (
+                    {isEditing ? (
                       <input type="text" value={activeCourseObj?.nome || ''} onChange={(e) => updateCourseDetails('nome', e.target.value)} placeholder="Nome da Disciplina" className="w-full text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight bg-transparent border-b-2 border-dashed border-slate-300 focus:border-teal-500 focus:outline-none mb-1 pb-1" />
                     ) : (
                       <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">{activeCourseObj?.nome}</h1>
                     )}
                     
-                    {canEdit ? (
+                    {isEditing ? (
                       <div className="flex items-center gap-2 mt-2">
                         <input type="text" value={activeCourseObj?.codigo || ''} onChange={(e) => updateCourseDetails('codigo', e.target.value)} placeholder="Código" className="w-32 text-sm text-slate-500 font-medium bg-transparent border-b-2 border-dashed border-slate-300 focus:border-teal-500 focus:outline-none" />
                         <span className="text-sm text-slate-500 font-medium">• Professor: {systemUsers[activeCourseObj?.professorId]?.nome}</span>
@@ -1052,8 +1118,9 @@ function LmsEnterprisePortal() {
                     )}
                   </div>
                   
-                  {canEdit && (
-                    <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm shrink-0">
+                  {/* BOTÃO DE EDIÇÃO PROTEGIDO MAS VISÍVEL */}
+                  {hasEditPermission && (
+                    <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm shrink-0 print:hidden">
                       <span className="text-xs font-bold text-slate-600 px-2 hidden sm:inline">Modo de Edição</span>
                       <button onClick={() => setEditMode(!editMode)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${editMode ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                         {editMode ? <ToggleRight className="w-4 h-4 mr-1"/> : <ToggleLeft className="w-4 h-4 mr-1"/>}
@@ -1063,7 +1130,7 @@ function LmsEnterprisePortal() {
                   )}
                 </div>
 
-                <div className="flex items-center text-xs text-slate-500 mb-6 bg-white p-3 rounded-md border border-slate-200 shadow-sm">
+                <div className="flex items-center text-xs text-slate-500 mb-6 bg-white p-3 rounded-md border border-slate-200 shadow-sm print:hidden">
                   <span className="hover:text-slate-800">Portal COREMU</span>
                   <ChevronRight className="w-3 h-3 mx-2" />
                   <span className="font-bold text-teal-700">{activeCourseObj?.codigo}</span>
