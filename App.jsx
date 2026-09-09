@@ -8,7 +8,8 @@ import {
   MessageSquare, Folder, CheckCircle, Upload, Download,
   ToggleLeft, ToggleRight, Layout, GripVertical, Trash2,
   Shield, UserPlus, CheckSquare, X, Link, Paperclip, Users, 
-  Edit2, Check, Loader2, Printer, AlignLeft, ClipboardList, Send
+  Edit2, Check, Loader2, Printer, AlignLeft, ClipboardList, Send,
+  Bold, Italic, Underline, Heading1, Heading2, List
 } from 'lucide-react';
 
 // ==========================================
@@ -35,7 +36,7 @@ try {
 }
 
 // ==========================================
-// ESCUDO CONTRA TELA BRANCA (ERROR BOUNDARY)
+// ESCUDO CONTRA TELA BRANCA
 // ==========================================
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -49,8 +50,7 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="p-8 bg-red-50 h-screen overflow-auto">
           <h1 className="text-2xl font-bold text-red-700 mb-4">🚨 Ocorreu um Erro no Sistema</h1>
-          <p className="text-slate-700 mb-4">Tire um print do erro abaixo para correção:</p>
-          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">{this.state.error?.toString()}</pre>
+          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 whitespace-pre-wrap">{this.state.error?.toString()}</pre>
         </div>
       );
     }
@@ -107,13 +107,11 @@ const useFirestoreDB = (docName, initialValue) => {
 // ==========================================
 function LmsEnterprisePortal() {
   
-  // 1. DADOS DO BANCO (Firestore)
+  // 1. BANCOS DE DADOS
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC' },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC' },
-    'prof2': { id: 'prof2', nome: 'Dra. Renata Gonçalves', role: 'professor', avatar: 'RG' },
-    'stu1': { id: 'stu1', nome: 'Mariana Alves', role: 'aluno', avatar: 'MA' },
-    'stu2': { id: 'stu2', nome: 'João Barcelos', role: 'aluno', avatar: 'JB' }
+    'stu1': { id: 'stu1', nome: 'Mariana Alves', role: 'aluno', avatar: 'MA' }
   });
 
   const [dbCourses, setDbCourses, coursesLoaded] = useFirestoreDB('tb_courses', [
@@ -127,25 +125,22 @@ function LmsEnterprisePortal() {
     }
   ];
   const [dbContents, setDbContents, contentsLoaded] = useFirestoreDB('tb_contents', { 'c1': defaultModules });
-
   const [dbStudents, setDbStudents, studentsLoaded] = useFirestoreDB('tb_enrollments', {
-    'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [false, false, false], feedback: "Ótimo desempenho." }]
+    'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [], feedback: "Ótimo desempenho." }]
   });
+  const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', { 'c1': [] });
+  
+  // Novas Tabelas: Fóruns (Tópicos e Respostas) e Provas Nativas
+  const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums_v2', {});
+  const [dbExams, setDbExams, examsLoaded] = useFirestoreDB('tb_exams_v1', {});
 
-  const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', {
-    'c1': [{ id: 'col1', label: '07/07 - 07:30' }, { id: 'col2', label: '07/07 - 08:20' }]
-  });
-
-  // NOVA TABELA: Fóruns (Mensagens em tempo real)
-  const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums', {});
-
-  // Tratamento de Segurança das Variáveis
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
   const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
   const attendanceCols = typeof dbAttendanceCols === 'object' && dbAttendanceCols !== null ? dbAttendanceCols : {};
   const forums = typeof dbForums === 'object' && dbForums !== null ? dbForums : {};
+  const exams = typeof dbExams === 'object' && dbExams !== null ? dbExams : {};
 
   // 2. ESTADOS DA INTERFACE
   const [activeUserId, setActiveUserId] = useState('admin1');
@@ -161,20 +156,14 @@ function LmsEnterprisePortal() {
   const hasEditPermission = role === 'admin' || role === 'professor';
   const isEditing = editMode && hasEditPermission;
 
-  // 3. ESTADOS DOS MODAIS E FORMULÁRIOS
+  // 3. ESTADOS DOS MODAIS
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
   const [newItemUrl, setNewItemUrl] = useState('');
-  const [newItemTextContent, setNewItemTextContent] = useState(''); // Novo para textos longos
+  const [newItemTextContent, setNewItemTextContent] = useState(''); 
   const [newFile, setNewFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-
-  // Estados de Leitura/Fórum
-  const [readingItem, setReadingItem] = useState(null); // Modal de Leitura de Texto
-  const [activeForumItem, setActiveForumItem] = useState(null); // Modal do Fórum
-  const [newForumMsg, setNewForumMsg] = useState('');
-  const chatEndRef = useRef(null); // Para scrollar o chat para baixo
 
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('aluno');
@@ -185,8 +174,15 @@ function LmsEnterprisePortal() {
   const [newCourseProfId, setNewCourseProfId] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
 
-  // Tela de Loading enquanto o Firebase Baixa os Dados
-  const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded && colsLoaded && forumsLoaded;
+  // Estados dos Novos Módulos
+  const [readingItem, setReadingItem] = useState(null); // Text Content
+  const [activeForumItem, setActiveForumItem] = useState(null); // Forum
+  const [activeTopicId, setActiveTopicId] = useState(null); // Forum Thread
+  const [activeExamItem, setActiveExamItem] = useState(null); // Exam
+
+  const editorRef = useRef(null); // Ref para o Editor WYSIWYG
+
+  const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded && colsLoaded && forumsLoaded && examsLoaded;
   if (!isDbReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
@@ -197,7 +193,9 @@ function LmsEnterprisePortal() {
     );
   }
 
-  // Filtragem e Troca de Usuários
+  // ==========================================
+  // FUNÇÕES GERAIS E NAVEGAÇÃO
+  // ==========================================
   const visibleCourses = courses.filter(c => {
     if (!c) return false;
     if (role === 'admin') return true;
@@ -224,35 +222,7 @@ function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // FUNÇÕES DE FÓRUM E LEITURA
-  // ==========================================
-  const handleSendForumMessage = (e) => {
-    e.preventDefault();
-    if (!newForumMsg.trim() || !activeForumItem) return;
-
-    const currentMsgs = forums[activeForumItem.id] || [];
-    const newMsg = {
-      id: Date.now(),
-      text: newForumMsg,
-      authorId: currentUser.id,
-      authorName: currentUser.nome,
-      authorRole: currentUser.role,
-      avatar: currentUser.avatar,
-      timestamp: new Date().toISOString()
-    };
-
-    setDbForums({ ...forums, [activeForumItem.id]: [...currentMsgs, newMsg] });
-    setNewForumMsg('');
-    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  };
-
-  const formatTime = (isoString) => {
-    const d = new Date(isoString);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + d.toLocaleDateString();
-  };
-
-  // ==========================================
-  // FUNÇÕES DE GESTÃO GERAL
+  // GESTÃO DE USUÁRIOS E DISCIPLINAS
   // ==========================================
   const handleCreateUser = (e) => {
     e.preventDefault();
@@ -291,10 +261,7 @@ function LmsEnterprisePortal() {
     setEditingUserName('');
   };
 
-  const handleCancelEditUser = () => {
-    setEditingUserId(null);
-    setEditingUserName('');
-  };
+  const handleCancelEditUser = () => { setEditingUserId(null); setEditingUserName(''); };
 
   const handleCreateCourse = (e) => {
     e.preventDefault();
@@ -309,18 +276,13 @@ function LmsEnterprisePortal() {
   };
 
   const handleDeleteCourse = (id) => {
-    if (window.confirm('Atenção: Excluir esta disciplina apagará todo o conteúdo. Confirmar?')) {
+    if (window.confirm('Excluir esta disciplina apagará todo o conteúdo. Confirmar?')) {
       setDbCourses(courses.filter(c => c && c.id !== id));
-      if (activeCourseId === id) {
-        setActiveCourseId(null);
-        setCurrentView('admin_dashboard');
-      }
+      if (activeCourseId === id) { setActiveCourseId(null); setCurrentView('admin_dashboard'); }
     }
   };
 
-  const updateCourseDetails = (field, value) => {
-    setDbCourses(courses.map(c => c?.id === activeCourseId ? { ...c, [field]: value } : c));
-  };
+  const updateCourseDetails = (field, value) => setDbCourses(courses.map(c => c?.id === activeCourseId ? { ...c, [field]: value } : c));
 
   const handleEnrollStudent = (e, courseId) => {
     e.preventDefault();
@@ -338,49 +300,8 @@ function LmsEnterprisePortal() {
     }
   };
 
-  const handleAddAttendanceCol = () => {
-    const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00 às 10:00):");
-    if (!label) return;
-    const currentCols = attendanceCols[activeCourseId] || [];
-    const newCols = [...currentCols, { id: `col_${Date.now()}`, label }];
-    setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
-    const updatedStudents = rawActiveStudents.map(s => ({ ...s, faltas: [...(s.faltas || []), false] }));
-    setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
-  };
-
-  const handleRemoveAttendanceCol = (colIndex) => {
-    if (!window.confirm('Deseja excluir esta aula do registro de todos os alunos?')) return;
-    const currentCols = attendanceCols[activeCourseId] || [];
-    const newCols = currentCols.filter((_, i) => i !== colIndex);
-    setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
-    const updatedStudents = rawActiveStudents.map(s => {
-      const newFaltas = [...(s.faltas || [])];
-      newFaltas.splice(colIndex, 1);
-      return { ...s, faltas: newFaltas };
-    });
-    setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
-  };
-
-  const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
-  const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
-  const currentAttendanceCols = attendanceCols[activeCourseId] || [];
-  const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
-
-  const studentsInCourse = rawActiveStudents.map(enrollment => ({
-    ...enrollment,
-    nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído'
-  }));
-
-  const visibleGradesAndAttendance = role === 'aluno' 
-    ? studentsInCourse.filter(s => s.studentId === currentUser.id) 
-    : studentsInCourse;
-
-  const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => 
-    u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id)
-  );
-
   // ==========================================
-  // FUNÇÕES DE CONTEÚDO E UPLOAD DE ARQUIVOS
+  // CONTEÚDOS E UPLOAD
   // ==========================================
   const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
@@ -398,11 +319,7 @@ function LmsEnterprisePortal() {
 
   const handleOpenAddItemModal = (sectionId) => {
     setActiveSectionForNewItem(sectionId);
-    setNewItemTitle('');
-    setNewItemType('FileText');
-    setNewItemUrl('');
-    setNewItemTextContent('');
-    setNewFile(null);
+    setNewItemTitle(''); setNewItemType('FileText'); setNewItemUrl(''); setNewItemTextContent(''); setNewFile(null);
   };
 
   const handleConfirmAddItem = async (e) => {
@@ -415,10 +332,11 @@ function LmsEnterprisePortal() {
     else if (newItemType === 'MessageSquare') color = 'text-purple-600';
     else if (newItemType === 'Upload') color = 'text-teal-600';
     else if (newItemType === 'TextContent') color = 'text-amber-600';
-    else if (newItemType === 'Exam') color = 'text-rose-600';
+    else if (newItemType === 'NativeExam') color = 'text-rose-600';
 
     let finalUrl = newItemUrl || null;
     let finalFileName = newFile ? newFile.name : null;
+    const finalItemId = `item_${Date.now()}`;
 
     if ((newItemType === 'FileText' || newItemType === 'Upload') && newFile) {
       setIsUploading(true);
@@ -427,26 +345,27 @@ function LmsEnterprisePortal() {
         await uploadBytes(fileRef, newFile);
         finalUrl = await getDownloadURL(fileRef);
       } catch (err) {
-        console.error(err);
-        alert("Erro no Upload! Verifique se você ativou as Regras do Firebase Storage.");
-        setIsUploading(false);
-        return;
+        alert("Erro no Upload! Verifique as Regras do Firebase Storage.");
+        setIsUploading(false); return;
       }
       setIsUploading(false);
     }
+
+    if (newItemType === 'MessageSquare') {
+      setDbForums({ ...forums, [finalItemId]: [] }); // Inicializa Fórum vazio
+    }
+    if (newItemType === 'NativeExam') {
+      setDbExams({ ...exams, [finalItemId]: { questions: [], submissions: {} } }); // Inicializa Prova vazia
+    }
+
+    const textContentToSave = newItemType === 'TextContent' && editorRef.current ? editorRef.current.innerHTML : '';
 
     updateContent(activeContent.map(sec => {
       if (sec?.id === activeSectionForNewItem) {
         return {
           ...sec,
           items: [...(sec.items || []), { 
-            id: `item_${Date.now()}`, 
-            title: newItemTitle, 
-            type: newItemType, 
-            color: color, 
-            url: finalUrl, 
-            fileName: finalFileName,
-            textContent: newItemType === 'TextContent' ? newItemTextContent : null
+            id: finalItemId, title: newItemTitle, type: newItemType, color: color, url: finalUrl, fileName: finalFileName, textContent: textContentToSave
           }]
         };
       }
@@ -455,41 +374,309 @@ function LmsEnterprisePortal() {
     setActiveSectionForNewItem(null); 
   };
 
-  const updateGrade = (studentId, field, value) => {
-    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s) });
-  };
-  const updateFeedback = (studentId, value) => {
-    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => s?.studentId === studentId ? { ...s, feedback: value } : s) });
-  };
-  const toggleAttendance = (studentId, index) => {
-    setDbStudents({ ...courseStudents, [activeCourseId]: rawActiveStudents.map(s => {
-        if (s?.studentId === studentId) {
-          const newFaltas = [...(s.faltas || [])];
-          newFaltas[index] = !newFaltas[index]; 
-          return { ...s, faltas: newFaltas };
-        }
-        return s;
-    })});
+  // Funções do Editor de Texto (WYSIWYG)
+  const execCommand = (command, value = null) => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) editorRef.current.focus();
   };
 
-  const handlePrintPDF = () => { window.print(); };
+  // Variáveis da Disciplina Ativa
+  const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
+  const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
+  const currentAttendanceCols = attendanceCols[activeCourseId] || [];
+  const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
 
-  const getIconComponent = (type) => {
-    switch (type) {
-      case 'FileText': return FileText;
-      case 'MessageSquare': return MessageSquare;
-      case 'Folder': return Folder;
-      case 'Upload': return Upload;
-      case 'CheckCircle': return CheckCircle;
-      case 'Link': return Link;
-      case 'TextContent': return AlignLeft;
-      case 'Exam': return ClipboardList;
-      default: return FileText;
+  const studentsInCourse = rawActiveStudents.map(enrollment => ({
+    ...enrollment, nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído'
+  }));
+
+  const visibleGradesAndAttendance = role === 'aluno' ? studentsInCourse.filter(s => s.studentId === currentUser.id) : studentsInCourse;
+  const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id));
+
+  // ==========================================
+  // RENDERIZAÇÕES DOS MÓDULOS ESPECÍFICOS
+  // ==========================================
+
+  const renderForumModal = () => {
+    const forumData = forums[activeForumItem.id] || []; // Array de Tópicos
+    const currentTopicData = forumData.find(t => t.id === activeTopicId);
+
+    const handleCreateTopic = (e) => {
+      e.preventDefault();
+      const title = e.target.elements.title.value;
+      const desc = e.target.elements.desc.value;
+      if(!title) return;
+      const newTopic = {
+        id: `topic_${Date.now()}`, title, description: desc, authorId: currentUser.id, authorName: currentUser.nome, avatar: currentUser.avatar, createdAt: new Date().toISOString(), replies: []
+      };
+      setDbForums({ ...forums, [activeForumItem.id]: [...forumData, newTopic] });
+      e.target.reset();
+    };
+
+    const handleReplyTopic = (e) => {
+      e.preventDefault();
+      const text = e.target.elements.reply.value;
+      if(!text) return;
+      const newReply = { id: `rep_${Date.now()}`, text, authorId: currentUser.id, authorName: currentUser.nome, avatar: currentUser.avatar, createdAt: new Date().toISOString() };
+      
+      const updatedTopics = forumData.map(t => t.id === activeTopicId ? { ...t, replies: [...(t.replies||[]), newReply] } : t);
+      setDbForums({ ...forums, [activeForumItem.id]: updatedTopics });
+      e.target.reset();
+    };
+
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
+          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-purple-900 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="w-5 h-5 text-purple-200"/>
+              <div>
+                <h2 className="font-bold leading-tight">{activeForumItem.title}</h2>
+                <p className="text-[10px] text-purple-200 uppercase font-medium">Fórum de Discussão da Disciplina</p>
+              </div>
+            </div>
+            <button onClick={() => { setActiveForumItem(null); setActiveTopicId(null); }} className="p-2 text-purple-200 hover:bg-purple-800 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+          </div>
+          
+          <div className="flex-1 flex overflow-hidden bg-slate-50">
+            {/* Lista de Tópicos (Aparece se não tiver tópico ativo) */}
+            {!activeTopicId ? (
+              <div className="flex-1 p-6 overflow-y-auto">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6">
+                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">Abrir Novo Tópico de Discussão</h3>
+                  <form onSubmit={handleCreateTopic} className="space-y-3">
+                    <input name="title" required placeholder="Título do Tópico (Ex: Dúvida sobre a Aula 02)" className="w-full border border-slate-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
+                    <textarea name="desc" required placeholder="Descreva sua dúvida ou assunto detalhadamente..." className="w-full border border-slate-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none h-20"></textarea>
+                    <button type="submit" className="bg-purple-700 text-white font-bold px-4 py-2 rounded-lg hover:bg-purple-800 transition text-sm">Criar Tópico</button>
+                  </form>
+                </div>
+
+                <div className="space-y-3">
+                  {forumData.length === 0 ? (
+                    <div className="text-center p-8 text-slate-400 font-medium">Nenhum tópico criado neste fórum. Seja o primeiro!</div>
+                  ) : (
+                    forumData.map(topic => (
+                      <div key={topic.id} onClick={() => setActiveTopicId(topic.id)} className="bg-white p-4 border border-slate-200 rounded-xl hover:border-purple-300 hover:shadow-md cursor-pointer transition flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold shrink-0">{topic.avatar}</div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-slate-800 text-base">{topic.title}</h4>
+                          <p className="text-xs text-slate-500 mt-1">Por {topic.authorName} em {new Date(topic.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-center shrink-0">
+                          <span className="block font-black text-purple-700 text-lg">{(topic.replies || []).length}</span>
+                          <span className="text-[10px] uppercase font-bold text-slate-400">Respostas</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              // Visão do Tópico Específico e Respostas
+              <div className="flex-1 flex flex-col h-full bg-white">
+                <div className="p-4 border-b border-slate-100 bg-slate-50 shrink-0">
+                  <button onClick={() => setActiveTopicId(null)} className="text-xs font-bold text-slate-500 hover:text-purple-700 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Voltar aos Tópicos</button>
+                  <h3 className="font-black text-xl text-slate-800 mt-2">{currentTopicData?.title}</h3>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
+                  {/* Post Original */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3 border-b border-slate-100 pb-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">{currentTopicData?.avatar}</div>
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm">{currentTopicData?.authorName}</p>
+                        <p className="text-[10px] text-slate-400">{new Date(currentTopicData?.createdAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <p className="text-slate-700 text-sm whitespace-pre-wrap">{currentTopicData?.description}</p>
+                  </div>
+
+                  {/* Respostas */}
+                  <div className="pl-8 space-y-4 border-l-2 border-slate-200">
+                    {(currentTopicData?.replies || []).map(reply => (
+                      <div key={reply.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative">
+                        <div className="absolute -left-10 top-4 w-8 border-t-2 border-slate-200"></div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold shrink-0">{reply.avatar}</div>
+                          <p className="font-bold text-slate-800 text-xs">{reply.authorName} <span className="font-normal text-slate-400 ml-2">{new Date(reply.createdAt).toLocaleString()}</span></p>
+                        </div>
+                        <p className="text-slate-700 text-sm whitespace-pre-wrap">{reply.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Form de Resposta */}
+                <div className="p-4 bg-white border-t border-slate-200 shrink-0">
+                  <form onSubmit={handleReplyTopic} className="flex gap-3">
+                    <textarea name="reply" required placeholder="Escreva sua resposta..." className="flex-1 border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none h-14"></textarea>
+                    <button type="submit" className="bg-purple-700 text-white font-bold px-6 py-2 rounded-lg hover:bg-purple-800 transition flex items-center justify-center">Enviar</button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderExamModal = () => {
+    const examData = exams[activeExamItem.id] || { questions: [], submissions: {} };
+    const [localQuestions, setLocalQuestions] = useState(examData.questions || []);
+    
+    // Visão de Construção da Prova (Professor/Admin)
+    if (isEditing) {
+      const handleAddQuestion = () => {
+        setLocalQuestions([...localQuestions, { id: `q_${Date.now()}`, title: 'Nova Pergunta', options: ['Opção 1', 'Opção 2', 'Opção 3', 'Opção 4'], correctIndex: 0 }]);
+      };
+      
+      const handleUpdateQuestion = (index, field, value) => {
+        const newQ = [...localQuestions];
+        newQ[index][field] = value;
+        setLocalQuestions(newQ);
+      };
+
+      const handleUpdateOption = (qIndex, oIndex, value) => {
+        const newQ = [...localQuestions];
+        newQ[qIndex].options[oIndex] = value;
+        setLocalQuestions(newQ);
+      };
+
+      const handleSaveExam = () => {
+        setDbExams({ ...exams, [activeExamItem.id]: { ...examData, questions: localQuestions } });
+        setActiveExamItem(null);
+        alert("Prova configurada e salva com sucesso!");
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-rose-700 text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <ClipboardList className="w-5 h-5"/>
+                <div>
+                  <h2 className="font-bold leading-tight">Configurar Prova: {activeExamItem.title}</h2>
+                  <p className="text-[10px] uppercase font-medium">Construtor Nativo</p>
+                </div>
+              </div>
+              <button onClick={() => setActiveExamItem(null)} className="p-2 hover:bg-rose-800 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-6">
+              {localQuestions.map((q, qIndex) => (
+                <div key={q.id} className="bg-white p-6 border border-slate-200 rounded-xl shadow-sm relative">
+                  <button onClick={() => setLocalQuestions(localQuestions.filter((_, i) => i !== qIndex))} className="absolute top-4 right-4 text-slate-300 hover:text-red-500"><Trash2 className="w-5 h-5"/></button>
+                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Pergunta {qIndex + 1}</label>
+                  <input type="text" value={q.title} onChange={e => handleUpdateQuestion(qIndex, 'title', e.target.value)} className="w-full border border-slate-300 p-3 rounded-lg text-sm font-bold focus:ring-2 focus:ring-rose-500 outline-none mb-4" />
+                  
+                  <div className="space-y-3 pl-4 border-l-2 border-slate-100">
+                    {q.options.map((opt, oIndex) => (
+                      <div key={oIndex} className="flex items-center gap-3">
+                        <input type="radio" name={`correct_${q.id}`} checked={q.correctIndex === oIndex} onChange={() => handleUpdateQuestion(qIndex, 'correctIndex', oIndex)} className="w-4 h-4 text-rose-600 focus:ring-rose-500 cursor-pointer"/>
+                        <input type="text" value={opt} onChange={e => handleUpdateOption(qIndex, oIndex, e.target.value)} className={`flex-1 border p-2 rounded-lg text-sm outline-none transition-all ${q.correctIndex === oIndex ? 'border-emerald-400 bg-emerald-50 text-emerald-800 font-bold' : 'border-slate-300 bg-white'}`} />
+                        {q.correctIndex === oIndex && <span className="text-[10px] font-bold text-emerald-600 uppercase">Correta</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              
+              <button onClick={handleAddQuestion} className="w-full border-2 border-dashed border-rose-300 text-rose-700 font-bold p-4 rounded-xl hover:bg-rose-50 transition flex items-center justify-center gap-2">
+                <Plus className="w-5 h-5"/> Adicionar Pergunta
+              </button>
+            </div>
+
+            <div className="p-4 bg-white border-t border-slate-200 shrink-0 flex justify-end gap-3">
+              <button onClick={() => setActiveExamItem(null)} className="px-6 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
+              <button onClick={handleSaveExam} className="bg-rose-700 text-white font-bold px-6 py-2 rounded-lg hover:bg-rose-800 transition shadow-md">Salvar Prova Oficial</button>
+            </div>
+          </div>
+        </div>
+      );
     }
+
+    // Visão de Resolução da Prova (Aluno)
+    const mySubmission = examData.submissions[currentUser.id];
+    
+    const handleSumbitExam = (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      let score = 0;
+      const answers = [];
+      
+      examData.questions.forEach((q, index) => {
+        const selectedOption = parseInt(formData.get(`q_${index}`));
+        answers.push(selectedOption);
+        if (selectedOption === q.correctIndex) score++;
+      });
+      
+      const finalScore = ((score / examData.questions.length) * 10).toFixed(1);
+      
+      const newSubmissions = { ...examData.submissions, [currentUser.id]: { score: finalScore, answers, submittedAt: new Date().toISOString() } };
+      setDbExams({ ...exams, [activeExamItem.id]: { ...examData, submissions: newSubmissions } });
+      alert(`Prova enviada com sucesso! Sua nota foi: ${finalScore}`);
+    };
+
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-rose-700 text-white shrink-0">
+            <div>
+              <h2 className="font-black text-2xl leading-tight">{activeExamItem.title}</h2>
+              <p className="text-xs text-rose-200 uppercase font-bold mt-1">Avaliação Oficial COREMU</p>
+            </div>
+            <button onClick={() => setActiveExamItem(null)} className="p-2 hover:bg-rose-800 rounded-full transition-colors"><X className="w-6 h-6"/></button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-6 sm:p-10 bg-slate-50">
+            {mySubmission ? (
+              <div className="text-center bg-white p-12 rounded-2xl border border-slate-200 shadow-sm max-w-md mx-auto mt-10">
+                <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4"/>
+                <h3 className="text-2xl font-black text-slate-800">Prova Concluída</h3>
+                <p className="text-slate-500 mt-2">Você já enviou suas respostas para esta avaliação.</p>
+                <div className="mt-6 inline-block bg-slate-100 p-4 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nota Final Obtida</span>
+                  <span className="text-4xl font-black text-slate-800">{mySubmission.score}</span>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSumbitExam} className="space-y-8 max-w-2xl mx-auto">
+                {examData.questions.length === 0 ? (
+                  <p className="text-center text-slate-500">O professor ainda não configurou as questões desta prova.</p>
+                ) : (
+                  <>
+                    {examData.questions.map((q, qIndex) => (
+                      <div key={qIndex} className="bg-white p-6 border border-slate-200 rounded-xl shadow-sm">
+                        <h4 className="font-bold text-slate-800 text-lg mb-4">{qIndex + 1}. {q.title}</h4>
+                        <div className="space-y-3">
+                          {q.options.map((opt, oIndex) => (
+                            <label key={oIndex} className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 hover:border-rose-300 transition-all has-[:checked]:bg-rose-50 has-[:checked]:border-rose-500 has-[:checked]:ring-1 has-[:checked]:ring-rose-500">
+                              <input type="radio" required name={`q_${qIndex}`} value={oIndex} className="mt-1 w-4 h-4 text-rose-600 focus:ring-rose-500 border-slate-300"/>
+                              <span className="text-sm font-medium text-slate-700 leading-relaxed">{opt}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-6 flex justify-end border-t border-slate-200">
+                      <button type="submit" className="bg-rose-700 text-white font-bold px-8 py-4 rounded-xl hover:bg-rose-800 transition shadow-lg text-lg flex items-center gap-2">
+                        <Check className="w-6 h-6"/> Enviar Respostas Oficialmente
+                      </button>
+                    </div>
+                  </>
+                )}
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // ==========================================
-  // RENDERIZAÇÃO DAS TELAS
+  // RENDERIZAÇÕES PRINCIPAIS DAS TELAS
   // ==========================================
   const renderUserHome = () => (
     <div className="space-y-6 animate-fade-in">
@@ -682,89 +869,26 @@ function LmsEnterprisePortal() {
     </div>
   );
 
-  const renderParticipants = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-        <div className="p-3 bg-blue-50 text-blue-700 rounded-xl"><Users className="w-8 h-8"/></div>
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Participantes da Disciplina</h2>
-          <p className="text-sm text-slate-500 mt-1">Visualize e gerencie os residentes matriculados nesta turma.</p>
-        </div>
-      </div>
-
-      {isEditing && (
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm print:hidden">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-teal-600"/> Matricular Novo Residente</h3>
-          <form onSubmit={(e) => handleEnrollStudent(e, activeCourseId)} className="flex gap-3 max-w-lg">
-            <select required value={newStudentId} onChange={e => setNewStudentId(e.target.value)} className="flex-1 border p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white">
-              <option value="">Selecione um residente cadastrado...</option>
-              {availableStudentsForEnrollment.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-            </select>
-            <button type="submit" className="bg-teal-800 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-teal-900 transition flex items-center gap-2">
-              <Plus className="w-4 h-4"/> Matricular
-            </button>
-          </form>
-        </div>
-      )}
-
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-100 text-slate-600 font-bold border-b">
-            <tr>
-              <th className="p-4">Nome do Aluno</th>
-              <th className="p-4 text-center">Status</th>
-              {isEditing && <th className="p-4 text-right print:hidden">Ação</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {studentsInCourse.length === 0 ? (
-              <tr><td colSpan={isEditing ? 3 : 2} className="p-6 text-center text-slate-500">Nenhum aluno matriculado nesta disciplina.</td></tr>
-            ) : (
-              studentsInCourse.map(s => {
-                if(!s) return null;
-                return (
-                <tr key={s.studentId} className="hover:bg-slate-50">
-                  <td className="p-4 font-bold text-slate-800 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
-                      {systemUsers[s.studentId]?.avatar || '??'}
-                    </div>
-                    {s.nome}
-                  </td>
-                  <td className="p-4 text-center"><span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-1 rounded font-bold uppercase">Matriculado</span></td>
-                  {isEditing && (
-                    <td className="p-4 text-right print:hidden">
-                      <button onClick={() => deleteStudent(s.studentId)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4 inline"/></button>
-                    </td>
-                  )}
-                </tr>
-              )})
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
   const renderCourseHome = () => (
     <div className="animate-fade-in relative">
       
-      {/* MODAL DE ADICIONAR ITEM AMPLIADO (6 OPÇÕES) */}
+      {/* MODAL DE ADICIONAR ITEM */}
       {activeSectionForNewItem && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in flex flex-col h-[90vh]">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <h3 className="font-black text-slate-800">Adicionar atividade ou recurso</h3>
               <button onClick={() => setActiveSectionForNewItem(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5"/></button>
             </div>
-            <div className="p-6 overflow-y-auto">
-              <form onSubmit={handleConfirmAddItem} className="space-y-5">
+            <div className="p-6 overflow-y-auto flex-1">
+              <form onSubmit={handleConfirmAddItem} className="space-y-6">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Título / Nome do Recurso</label>
                   <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos" className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Selecione o Tipo de Material</label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <div onClick={() => setNewItemType('FileText')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'FileText' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                       <FileText className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Arquivo<br/>PDF/Doc</span>
                     </div>
@@ -774,14 +898,11 @@ function LmsEnterprisePortal() {
                     <div onClick={() => setNewItemType('Link')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'Link' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                       <Link className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Link Externo<br/>Vídeo/Site</span>
                     </div>
-                    <div onClick={() => setNewItemType('Exam')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'Exam' ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                      <ClipboardList className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Prova<br/>Avaliação</span>
+                    <div onClick={() => setNewItemType('NativeExam')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'NativeExam' ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                      <ClipboardList className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Prova Nativa<br/>Avaliação COREMU</span>
                     </div>
                     <div onClick={() => setNewItemType('MessageSquare')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'MessageSquare' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                      <MessageSquare className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Fórum<br/>Dúvidas FAQ</span>
-                    </div>
-                    <div onClick={() => setNewItemType('Upload')} className={`cursor-pointer border p-3 rounded-lg flex flex-col items-center gap-2 transition-all text-center ${newItemType === 'Upload' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                      <Upload className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Tarefa<br/>Envio de PDF</span>
+                      <MessageSquare className="w-6 h-6"/><span className="text-[10px] font-bold leading-tight">Fórum<br/>Tópicos de Dúvidas</span>
                     </div>
                   </div>
                 </div>
@@ -797,26 +918,43 @@ function LmsEnterprisePortal() {
                       <label className="text-xs font-bold text-slate-500 uppercase block mb-2">URL do Link (Vídeo, Site, etc)</label>
                       <input type="url" required value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="https://..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
                     </>
-                  ) : newItemType === 'Exam' ? (
-                    <>
-                      <label className="text-xs font-bold text-rose-600 uppercase block mb-2">Link da Prova (Recomendado: Google Forms)</label>
-                      <input type="url" required value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="Cole aqui o link do formulário da prova..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 outline-none" />
-                      <p className="text-[10px] text-slate-500 mt-1">O botão de acesso ficará em destaque vermelho para os residentes.</p>
-                    </>
-                  ) : newItemType === 'TextContent' ? (
-                    <>
-                      <label className="text-xs font-bold text-amber-600 uppercase block mb-2">Conteúdo da Página (Texto)</label>
-                      <textarea required rows="6" value={newItemTextContent} onChange={e => setNewItemTextContent(e.target.value)} placeholder="Digite ou cole o texto do artigo/aula aqui..." className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none"></textarea>
-                    </>
+                  ) : newItemType === 'NativeExam' ? (
+                    <div className="bg-rose-50 text-rose-800 p-4 rounded-lg text-sm font-medium border border-rose-200 flex items-center gap-3">
+                      <ClipboardList className="w-8 h-8 shrink-0 text-rose-500"/>
+                      A prova será criada vazia. Após salvar, clique no botão "Configurar Prova Oficial" no mural para adicionar as perguntas e o gabarito.
+                    </div>
                   ) : newItemType === 'MessageSquare' ? (
-                    <div className="bg-purple-50 text-purple-800 p-3 rounded-lg text-xs font-medium border border-purple-100">
-                      O Fórum será criado automaticamente e permitirá troca de mensagens em tempo real entre alunos e professores. Nenhuma configuração adicional é necessária.
+                    <div className="bg-purple-50 text-purple-800 p-4 rounded-lg text-sm font-medium border border-purple-200 flex items-center gap-3">
+                      <MessageSquare className="w-8 h-8 shrink-0 text-purple-500"/>
+                      O Fórum de Discussão será ativado e permitirá a criação de Tópicos e Respostas (Estilo phpBB) entre professores e alunos.
+                    </div>
+                  ) : newItemType === 'TextContent' ? (
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-amber-600 uppercase block">Conteúdo da Página (WYSIWYG Editor)</label>
+                      <div className="border border-slate-300 rounded-lg overflow-hidden bg-white flex flex-col h-64 shadow-inner">
+                        <div className="bg-slate-100 border-b border-slate-300 p-2 flex gap-1 items-center shrink-0">
+                          <button type="button" onClick={() => execCommand('bold')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Negrito"><Bold className="w-4 h-4"/></button>
+                          <button type="button" onClick={() => execCommand('italic')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Itálico"><Italic className="w-4 h-4"/></button>
+                          <button type="button" onClick={() => execCommand('underline')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Sublinhado"><Underline className="w-4 h-4"/></button>
+                          <div className="w-px h-5 bg-slate-300 mx-1"></div>
+                          <button type="button" onClick={() => execCommand('formatBlock', 'H1')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Título Principal"><Heading1 className="w-4 h-4"/></button>
+                          <button type="button" onClick={() => execCommand('formatBlock', 'H2')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Subtítulo"><Heading2 className="w-4 h-4"/></button>
+                          <div className="w-px h-5 bg-slate-300 mx-1"></div>
+                          <button type="button" onClick={() => execCommand('insertUnorderedList')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 transition" title="Lista"><List className="w-4 h-4"/></button>
+                        </div>
+                        <div 
+                          ref={editorRef}
+                          contentEditable 
+                          className="p-4 outline-none flex-1 overflow-y-auto prose max-w-none prose-sm"
+                          placeholder="Digite o conteúdo da aula aqui..."
+                        ></div>
+                      </div>
                     </div>
                   ) : null}
                 </div>
 
-                <div className="pt-2">
-                  <button type="submit" disabled={isUploading} className="w-full bg-teal-800 text-white font-bold p-3 rounded-lg hover:bg-teal-900 transition shadow-md disabled:bg-slate-400">
+                <div className="pt-4 border-t border-slate-100 shrink-0">
+                  <button type="submit" disabled={isUploading} className="w-full bg-teal-800 text-white font-bold p-3.5 rounded-lg hover:bg-teal-900 transition shadow-md disabled:bg-slate-400">
                     {isUploading ? (
                       <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Enviando arquivo...</span>
                     ) : 'Salvar e Publicar no Mural'}
@@ -828,10 +966,10 @@ function LmsEnterprisePortal() {
         </div>
       )}
 
-      {/* MODAL DE LEITURA DE TEXTO (TEXTCONTENT) */}
+      {/* Renderização condicional dos Modais */}
       {readingItem && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in flex flex-col h-[90vh]">
             <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><AlignLeft className="w-5 h-5"/></div>
@@ -839,85 +977,15 @@ function LmsEnterprisePortal() {
               </div>
               <button onClick={() => setReadingItem(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6"/></button>
             </div>
-            <div className="p-6 sm:p-10 overflow-y-auto bg-slate-50/50">
-              <div className="prose prose-slate max-w-none text-slate-700 whitespace-pre-wrap leading-relaxed">
-                {readingItem.textContent}
-              </div>
+            <div className="p-6 sm:p-10 overflow-y-auto bg-white flex-1">
+              <div className="prose prose-slate max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: readingItem.textContent }}></div>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL DO FÓRUM / CHAT (MESSAGESQUARE) */}
-      {activeForumItem && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[85vh] overflow-hidden animate-fade-in flex flex-col">
-            
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-purple-900 text-white shrink-0">
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-5 h-5 text-purple-200"/>
-                <div>
-                  <h2 className="font-bold leading-tight">{activeForumItem.title}</h2>
-                  <p className="text-[10px] text-purple-200 uppercase font-medium">Fórum de Dúvidas da Disciplina</p>
-                </div>
-              </div>
-              <button onClick={() => setActiveForumItem(null)} className="p-2 text-purple-200 hover:bg-purple-800 rounded-full transition-colors"><X className="w-5 h-5"/></button>
-            </div>
-            
-            <div className="flex-1 p-4 overflow-y-auto bg-slate-50 space-y-4">
-              {!(forums[activeForumItem.id] || []).length ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                  <MessageSquare className="w-12 h-12 mb-3 opacity-20"/>
-                  <p className="font-medium">Nenhuma mensagem neste fórum.</p>
-                  <p className="text-xs mt-1">Seja o primeiro a enviar uma dúvida ou aviso!</p>
-                </div>
-              ) : (
-                (forums[activeForumItem.id] || []).map((msg) => {
-                  const isMe = msg.authorId === currentUser.id;
-                  return (
-                    <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                      <div className="flex items-end gap-2 max-w-[85%]">
-                        {!isMe && (
-                          <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 mb-1">
-                            {msg.avatar}
-                          </div>
-                        )}
-                        <div className={`px-4 py-2.5 rounded-2xl ${isMe ? 'bg-purple-600 text-white rounded-br-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm'}`}>
-                          {!isMe && (
-                            <div className="flex items-baseline gap-2 mb-1">
-                              <span className="text-[11px] font-bold text-purple-700">{msg.authorName}</span>
-                              <span className="text-[9px] uppercase tracking-wider text-slate-400">{msg.authorRole === 'aluno' ? 'Residente' : msg.authorRole}</span>
-                            </div>
-                          )}
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-                          <p className={`text-[9px] mt-1 text-right ${isMe ? 'text-purple-200' : 'text-slate-400'}`}>{formatTime(msg.timestamp)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            <div className="p-4 bg-white border-t border-slate-200 shrink-0">
-              <form onSubmit={handleSendForumMessage} className="flex gap-2 relative">
-                <input 
-                  type="text" 
-                  value={newForumMsg} 
-                  onChange={e => setNewForumMsg(e.target.value)} 
-                  placeholder="Digite sua mensagem para a turma..." 
-                  className="w-full bg-slate-100 border-transparent focus:bg-white focus:border-purple-300 focus:ring-2 focus:ring-purple-200 rounded-full px-5 py-3 text-sm pr-12 outline-none transition-all"
-                />
-                <button type="submit" disabled={!newForumMsg.trim()} className="absolute right-1.5 top-1.5 bottom-1.5 aspect-square bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 text-white rounded-full flex items-center justify-center transition-colors">
-                  <Send className="w-4 h-4 ml-0.5" />
-                </button>
-              </form>
-            </div>
-
-          </div>
-        </div>
-      )}
+      {activeForumItem && renderForumModal()}
+      {activeExamItem && renderExamModal()}
 
       {isEditing && (
         <div onClick={addSection} className="mb-6 border border-dashed border-teal-400 rounded-lg p-4 text-center bg-teal-50/50 hover:bg-teal-100 cursor-pointer transition text-teal-700 font-bold text-sm flex items-center justify-center gap-2 shadow-sm print:hidden">
@@ -969,37 +1037,31 @@ function LmsEnterprisePortal() {
                           <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
                         )}
                         
-                        {/* RENDERIZAÇÃO INTELIGENTE DOS BOTÕES BASEADA NO TIPO */}
                         {!isEditing && (
-                          <div className="mt-1.5 flex flex-wrap gap-2 print:hidden">
-                            {/* Arquivos para Download */}
+                          <div className="mt-2 flex flex-wrap gap-2 print:hidden">
                             {item.fileName && item.url && (
-                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
                                 <Download className="w-3.5 h-3.5"/> Baixar {item.fileName}
                               </a>
                             )}
-                            {/* Provas e Avaliações (Destaque Vermelho) */}
-                            {item.type === 'Exam' && item.url && (
-                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-1.5 rounded-md transition shadow-md w-fit">
-                                <ClipboardList className="w-4 h-4"/> Acessar Avaliação
-                              </a>
-                            )}
-                            {/* Links Simples de Video ou Site */}
-                            {item.type === 'Link' && item.url && !item.fileName && (
-                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
-                                <Link className="w-3.5 h-3.5"/> Abrir Link Externo
-                              </a>
-                            )}
-                            {/* Leitura de Texto Escrito */}
-                            {item.type === 'TextContent' && (
-                              <button onClick={() => setReadingItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
-                                <AlignLeft className="w-3.5 h-3.5"/> Ler Conteúdo
+                            {item.type === 'NativeExam' && (
+                              <button onClick={() => setActiveExamItem(item)} className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-1.5 rounded-md transition shadow-md w-fit">
+                                <ClipboardList className="w-4 h-4"/> {isEditing || role === 'professor' ? 'Configurar Prova Oficial' : 'Acessar Avaliação'}
                               </button>
                             )}
-                            {/* Fórum de Dúvidas */}
+                            {item.type === 'Link' && item.url && !item.fileName && (
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <Link className="w-3.5 h-3.5"/> Acessar Link Externo
+                              </a>
+                            )}
+                            {item.type === 'TextContent' && (
+                              <button onClick={() => setReadingItem(item)} className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <AlignLeft className="w-3.5 h-3.5"/> Ler Conteúdo da Aula
+                              </button>
+                            )}
                             {item.type === 'MessageSquare' && (
-                              <button onClick={() => setActiveForumItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
-                                <MessageSquare className="w-3.5 h-3.5"/> Abrir Fórum
+                              <button onClick={() => setActiveForumItem(item)} className="flex items-center gap-1.5 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-md transition shadow-sm w-fit">
+                                <Users className="w-3.5 h-3.5"/> Abrir Fórum de Discussão
                               </button>
                             )}
                           </div>
@@ -1026,6 +1088,7 @@ function LmsEnterprisePortal() {
     </div>
   );
 
+  // Demais Renders (Manter os originais de Notas e Participantes)
   const renderGradebook = () => (
     <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
       <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
@@ -1125,7 +1188,7 @@ function LmsEnterprisePortal() {
             {currentAttendanceCols.length > 0 && (
               <tr className="bg-slate-100 text-slate-700 text-center text-[10px]">
                 {currentAttendanceCols.map((col, index) => (
-                  <th key={col.id} className="p-2 border border-slate-300 relative group">
+                  <th key={col.id} className="p-2 border border-slate-300 relative group min-w-[80px]">
                     {col.label}
                     {isEditing && (
                       <button onClick={() => handleRemoveAttendanceCol(index)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition print:hidden shadow-sm">
@@ -1284,7 +1347,6 @@ function LmsEnterprisePortal() {
             
             {currentView === 'user_home' && renderUserHome()}
             {currentView === 'admin_dashboard' && renderAdminDashboard()}
-            {currentView === 'admin_students' && renderAdminStudents()}
             {currentView === 'admin_users' && renderAdminUsers()}
             {currentView === 'empty_state' && renderEmptyState()}
 
