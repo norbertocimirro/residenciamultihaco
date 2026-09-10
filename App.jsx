@@ -122,7 +122,7 @@ function LmsEnterprisePortal() {
   // ----------------------------------------
   // BANCO DE DADOS EM NUVEM
   // ----------------------------------------
-  const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
+  const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users_V2', {
     'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC', email: 'gestao@haco.mil.br', phone: '(51) 3333-4444', bio: 'Gestão Geral do Programa de Residência Multiprofissional.', showContactPublicly: true },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC', email: 'norberto@haco.mil.br', phone: '(51) 99999-9999', bio: 'Enfermeiro da Força Aérea Brasileira. Pós-graduado em Gestão de Saúde, Auditoria e Enfermagem Aeroespacial.', showContactPublicly: true },
     'stu1': { id: 'stu1', nome: 'Mariana Alves', role: 'aluno', avatar: 'MA', email: 'mariana@teste.com', phone: '(51) 98888-8888', bio: 'Residente R1.', showContactPublicly: false }
