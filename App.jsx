@@ -31,31 +31,38 @@ try {
   db = getFirestore(app);
   storage = getStorage(app);
 } catch (e) {
-  console.error("Erro inicializando Firebase", e);
+  console.error("Erro crítico na inicialização do Firebase:", e);
 }
 
 // ==========================================
-// 2. ESCUDO CONTRA TELA BRANCA
+// 2. ESCUDO CONTRA TELA BRANCA (ERROR BOUNDARY)
 // ==========================================
 class ErrorBoundary extends React.Component {
   constructor(props) { 
     super(props); 
-    this.state = { hasError: false, error: null }; 
+    this.state = { hasError: false, error: null, info: null }; 
   }
+  
   static getDerivedStateFromError(error) { 
     return { hasError: true, error }; 
   }
+  
   componentDidCatch(error, info) { 
-    console.error("Erro interceptado:", error, info);
+    console.error("Erro capturado pelo ErrorBoundary:", error, info);
+    this.setState({ info });
   }
+  
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-8 bg-red-50 h-screen overflow-auto">
-          <h1 className="text-2xl font-bold text-red-700 mb-4">🚨 Erro Crítico Interceptado</h1>
-          <p className="text-slate-700 mb-4">O sistema evitou uma tela branca. Detalhes técnicos:</p>
-          <pre className="bg-white p-4 border border-red-200 rounded text-xs text-red-600 whitespace-pre-wrap">
+        <div className="p-8 bg-red-50 h-screen overflow-auto font-sans">
+          <h1 className="text-3xl font-black text-red-700 mb-4">🚨 Erro Crítico de Sistema Interceptado</h1>
+          <p className="text-slate-700 mb-4 text-base">O sistema evitou uma tela branca de falha total. Detalhes técnicos para depuração:</p>
+          <pre className="bg-white p-4 border border-red-200 rounded-xl text-xs text-red-600 overflow-x-auto whitespace-pre-wrap shadow-sm">
             {this.state.error?.toString()}
+          </pre>
+          <pre className="bg-white p-4 border border-red-200 rounded-xl text-xs text-slate-600 overflow-x-auto mt-4 whitespace-pre-wrap shadow-sm">
+            {this.state.info?.componentStack}
           </pre>
         </div>
       );
@@ -65,30 +72,38 @@ class ErrorBoundary extends React.Component {
 }
 
 // ==========================================
-// 3. HOOK DE SINCRONIZAÇÃO EM TEMPO REAL
+// 3. HOOK DE SINCRONIZAÇÃO EM TEMPO REAL (FIRESTORE)
 // ==========================================
 const useFirestoreDB = (docName, initialValue) => {
   const [data, setData] = useState(initialValue);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!db) { setIsLoaded(true); return; }
-    const unsub = onSnapshot(doc(db, 'coremu_database', docName), 
+    if (!db) { 
+      setIsLoaded(true); 
+      return; 
+    }
+    
+    const unsub = onSnapshot(
+      doc(db, 'coremu_database', docName), 
       (docSnap) => {
         if (docSnap.exists()) {
           setData(docSnap.data().value || initialValue);
         } else {
-          setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch(console.error);
+          setDoc(doc(db, 'coremu_database', docName), { value: initialValue }).catch((err) => {
+            console.error("Erro ao criar documento inicial:", err);
+          });
           setData(initialValue);
         }
         setIsLoaded(true);
       },
       (error) => {
-        console.error(`Erro de leitura [${docName}]:`, error);
+        console.error(`Erro de leitura na nuvem [${docName}]:`, error);
         setData(initialValue);
         setIsLoaded(true);
       }
     );
+    
     return () => unsub();
   }, [docName]);
 
@@ -96,14 +111,18 @@ const useFirestoreDB = (docName, initialValue) => {
     const valToSave = typeof newValue === 'function' ? newValue(data) : newValue;
     setData(valToSave); 
     if (db) {
-      try { await setDoc(doc(db, 'coremu_database', docName), { value: valToSave }); } 
-      catch (error) { console.error("Falha ao gravar na nuvem:", error); }
+      try {
+        await setDoc(doc(db, 'coremu_database', docName), { value: valToSave });
+      } catch (error) {
+        console.error("Falha ao gravar dados na nuvem:", error);
+      }
     }
   };
 
   return [data, updateData, isLoaded];
 };
 
+// Configurações avançadas da barra de ferramentas do Editor de Texto Rico (React Quill)
 const quillModules = {
   toolbar: [
     [{ 'header': [1, 2, 3, false] }],
@@ -115,14 +134,17 @@ const quillModules = {
 };
 
 // ==========================================
-// 4. COMPONENTE PRINCIPAL (COREMU PORTAL)
+// 4. COMPONENTE PRINCIPAL DO PORTAL (COREMU AVA)
 // ==========================================
 function LmsEnterprisePortal() {
   
+  // ----------------------------------------
+  // BANCO DE DADOS EM NUVEM (FIRESTORE)
+  // ----------------------------------------
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
-    'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC', email: 'gestao@haco.mil.br', phone: '', bio: 'Gestão Geral da Residência Multiprofissional.', showContactPublicly: true },
-    'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC', email: 'norberto@haco.mil.br', phone: '', bio: 'Enfermeiro Assistencial e Docente.', showContactPublicly: true },
-    'stu1': { id: 'stu1', nome: 'Mariana Alves', role: 'aluno', avatar: 'MA', email: 'mariana@teste.com', phone: '(51) 98888-8888', bio: 'Residente R1.', showContactPublicly: false }
+    'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC', email: 'gestao@haco.mil.br', phone: '(51) 3333-4444', bio: 'Gestão Geral do Programa de Residência Multiprofissional em Saúde.', showContactPublicly: true },
+    'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC', email: 'norberto@haco.mil.br', phone: '(51) 99999-9999', bio: 'Enfermeiro da Força Aérea Brasileira. Pós-graduado em Gestão de Saúde, Auditoria e Enfermagem Aeroespacial.', showContactPublicly: true },
+    'stu1': { id: 'stu1', nome: 'Mariana Alves', role: 'aluno', avatar: 'MA', email: 'mariana.aluno@teste.com', phone: '(51) 98888-8888', bio: 'Residente R1 de Enfermagem.', showContactPublicly: false }
   });
   
   const [dbCourses, setDbCourses, coursesLoaded] = useFirestoreDB('tb_courses', [
@@ -130,16 +152,24 @@ function LmsEnterprisePortal() {
   ]);
   
   const defaultModules = [{
-    id: 'boas_vindas', title: 'Mural de Boas-vindas', bgColor: 'bg-blue-50/50', borderColor: 'border-blue-100',
-    items: [{ id: 'i1', title: 'Plano de Ensino', type: 'FileText', color: 'text-red-500', fileName: 'Plano_de_Ensino_2026.pdf', url: null }]
+    id: 'boas_vindas', 
+    title: 'Mural de Boas-vindas e Orientações', 
+    bgColor: 'bg-blue-50/50', 
+    borderColor: 'border-blue-100',
+    items: [{ id: 'i1', title: 'Plano de Ensino 2026', type: 'FileText', color: 'text-red-500', fileName: 'Plano_de_Ensino_2026.pdf', url: null }]
   }];
   
   const [dbContents, setDbContents, contentsLoaded] = useFirestoreDB('tb_contents', { 'c1': defaultModules });
-  const [dbStudents, setDbStudents, studentsLoaded] = useFirestoreDB('tb_enrollments', { 'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [], feedback: "Ótimo desempenho." }] });
+  
+  const [dbStudents, setDbStudents, studentsLoaded] = useFirestoreDB('tb_enrollments', { 
+    'c1': [{ studentId: 'stu1', ga: 8.6, gb: 7.4, gc: 0, faltas: [], feedback: "Ótimo desempenho clínico e teórico." }] 
+  });
+  
   const [dbAttendanceCols, setDbAttendanceCols, colsLoaded] = useFirestoreDB('tb_attendance_cols', { 'c1': [] });
   const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums_v3', {});
   const [dbExams, setDbExams, examsLoaded] = useFirestoreDB('tb_exams_v1', {});
 
+  // Blindagem rigorosa de variáveis contra nulos/undefined
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
@@ -148,6 +178,9 @@ function LmsEnterprisePortal() {
   const forums = typeof dbForums === 'object' && dbForums !== null ? dbForums : {};
   const exams = typeof dbExams === 'object' && dbExams !== null ? dbExams : {};
 
+  // ----------------------------------------
+  // ESTADOS GLOBAIS DE INTERFACE E SESSÃO
+  // ----------------------------------------
   const [activeUserId, setActiveUserId] = useState('admin1');
   const currentUser = systemUsers[activeUserId] || systemUsers['admin1'] || { id: 'admin1', nome: 'Gestão', role: 'admin', avatar: 'GC' };
   const role = currentUser?.role || 'admin';
@@ -161,6 +194,9 @@ function LmsEnterprisePortal() {
   const hasEditPermission = role === 'admin' || role === 'professor';
   const isEditing = editMode && hasEditPermission;
 
+  // ----------------------------------------
+  // ESTADOS DE FORMULÁRIOS E MODAIS GERAIS
+  // ----------------------------------------
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
@@ -178,6 +214,9 @@ function LmsEnterprisePortal() {
   const [newCourseProfId, setNewCourseProfId] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
 
+  // ----------------------------------------
+  // ESTADOS DOS MÓDULOS DE AULA E PERFIS
+  // ----------------------------------------
   const [readingItem, setReadingItem] = useState(null); 
   const [activeForumItem, setActiveForumItem] = useState(null); 
   const [activeTopicId, setActiveTopicId] = useState(null); 
@@ -189,11 +228,14 @@ function LmsEnterprisePortal() {
 
   const chatEndRef = useRef(null); 
 
+  // ----------------------------------------
+  // VERIFICAÇÃO DE PRONTIDÃO DO BANCO DE DADOS
+  // ----------------------------------------
   const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded && colsLoaded && forumsLoaded && examsLoaded;
   
   if (!isDbReady) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-50 flex-col">
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50 flex-col font-sans">
         <Loader2 className="w-16 h-16 text-teal-600 animate-spin mb-6" />
         <h2 className="text-2xl font-black text-slate-800">Sincronizando com a Nuvem</h2>
         <p className="text-base text-slate-500 mt-2">Iniciando Ambiente Virtual de Aprendizagem COREMU...</p>
@@ -201,6 +243,9 @@ function LmsEnterprisePortal() {
     );
   }
 
+  // ----------------------------------------
+  // NAVEGAÇÃO E FILTRAGEM POR PERMISSÕES (RBAC)
+  // ----------------------------------------
   const visibleCourses = courses.filter(c => {
     if (!c) return false;
     if (role === 'admin') return true;
@@ -221,22 +266,38 @@ function LmsEnterprisePortal() {
     setCurrentView(newRole === 'admin' ? 'admin_dashboard' : 'user_home'); 
   };
 
+  // ----------------------------------------
+  // GESTÃO DE USUÁRIOS E DIRETÓRIO
+  // ----------------------------------------
   const handleCreateUser = (e) => {
     e.preventDefault();
     if (!newUserName) return;
+    
     const newId = `usr_${Date.now()}`;
     const initials = newUserName.substring(0, 2).toUpperCase();
-    setDbUsers({ 
-      ...systemUsers, 
-      [newId]: { id: newId, nome: newUserName, role: newUserRole, avatar: initials, email: '', phone: '', bio: '', showContactPublicly: false } 
-    });
+    
+    const newUserObject = { 
+      id: newId, 
+      nome: newUserName, 
+      role: newUserRole, 
+      avatar: initials, 
+      email: '', 
+      phone: '', 
+      bio: 'Novo membro cadastrado no sistema.', 
+      showContactPublicly: false 
+    };
+
+    setDbUsers({ ...systemUsers, [newId]: newUserObject });
     setNewUserName('');
-    alert('Usuário cadastrado com sucesso!');
+    alert('Usuário cadastrado com sucesso na nuvem!');
   };
 
   const handleDeleteUser = (id) => {
-    if (id === 'admin1') return alert('O Administrador principal não pode ser apagado.');
-    if (window.confirm('Deseja excluir este usuário permanentemente?')) {
+    if (id === 'admin1') {
+      return alert('O Administrador principal do sistema não pode ser apagado.');
+    }
+    
+    if (window.confirm('Deseja excluir este usuário permanentemente do banco de dados?')) {
       const updatedUsers = { ...systemUsers };
       delete updatedUsers[id];
       setDbUsers(updatedUsers);
@@ -251,12 +312,14 @@ function LmsEnterprisePortal() {
 
   const handleSaveEditedUser = (id) => {
     if (!editingUserName.trim()) return alert("O nome não pode ficar em branco.");
+    
     const updatedUsers = { ...systemUsers };
     if(updatedUsers[id]) {
       updatedUsers[id].nome = editingUserName;
       updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase();
       setDbUsers(updatedUsers);
     }
+    
     setEditingUserId(null);
     setEditingUserName('');
   };
@@ -266,22 +329,34 @@ function LmsEnterprisePortal() {
     setEditingUserName('');
   };
 
+  // ----------------------------------------
+  // GESTÃO DE DISCIPLINAS E MATRÍCULAS
+  // ----------------------------------------
   const handleCreateCourse = (e) => {
     e.preventDefault();
     if (!newCourseCode || !newCourseName || !newCourseProfId) return;
+    
     const newId = `c_${Date.now()}`;
+    
     setDbCourses([...courses, { id: newId, codigo: newCourseCode, nome: newCourseName, professorId: newCourseProfId }]);
     setDbContents({ ...courseContents, [newId]: defaultModules });
     setDbStudents({ ...courseStudents, [newId]: [] });
     setDbAttendanceCols({ ...attendanceCols, [newId]: [] }); 
-    setNewCourseCode(''); setNewCourseName(''); setNewCourseProfId('');
-    alert('Disciplina criada com sucesso!');
+    
+    setNewCourseCode(''); 
+    setNewCourseName(''); 
+    setNewCourseProfId('');
+    
+    alert('Disciplina criada e sincronizada com sucesso!');
   };
 
   const handleDeleteCourse = (id) => {
-    if (window.confirm('Atenção: Excluir esta disciplina apagará todo o conteúdo para sempre. Confirmar?')) {
+    if (window.confirm('Atenção: Excluir esta disciplina apagará todo o seu conteúdo didático para sempre. Confirmar exclusão?')) {
       setDbCourses(courses.filter(c => c && c.id !== id));
-      if (activeCourseId === id) { setActiveCourseId(null); setCurrentView('admin_dashboard'); }
+      if (activeCourseId === id) { 
+        setActiveCourseId(null); 
+        setCurrentView('admin_dashboard'); 
+      }
     }
   };
 
@@ -292,10 +367,23 @@ function LmsEnterprisePortal() {
   const handleEnrollStudent = (e, courseId) => {
     e.preventDefault();
     if (!newStudentId) return;
+    
     const currentColsLength = (attendanceCols[courseId] || []).length;
-    const newStudentData = { studentId: newStudentId, ga: 0, gb: 0, gc: 0, faltas: new Array(currentColsLength).fill(false), feedback: "" };
+    
+    const newStudentData = { 
+      studentId: newStudentId, 
+      ga: 0, gb: 0, gc: 0, 
+      faltas: new Array(currentColsLength).fill(false), 
+      feedback: "" 
+    };
+    
     const currentEnrolled = Array.isArray(courseStudents[courseId]) ? courseStudents[courseId] : [];
-    setDbStudents({ ...courseStudents, [courseId]: [...currentEnrolled, newStudentData] });
+    
+    setDbStudents({ 
+      ...courseStudents, 
+      [courseId]: [...currentEnrolled, newStudentData] 
+    });
+    
     setNewStudentId('');
   };
 
@@ -306,24 +394,75 @@ function LmsEnterprisePortal() {
     }
   };
 
-  const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
-  const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
+  // ----------------------------------------
+  // GESTÃO DE MÓDULOS E CONTEÚDOS DIDÁTICOS
+  // ----------------------------------------
+  const toggleModule = (id) => {
+    setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const updateContent = (newContent) => {
+    setDbContents({ ...courseContents, [activeCourseId]: newContent });
+  };
 
   const addSection = () => {
-    const newSection = { id: `sec_${Date.now()}`, title: 'Novo Módulo / Semestre', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', items: [] };
+    const newSection = { 
+      id: `sec_${Date.now()}`, 
+      title: 'Novo Módulo ou Unidade Temática', 
+      bgColor: 'bg-slate-50', 
+      borderColor: 'border-slate-200', 
+      items: [] 
+    };
     updateContent([...activeContent, newSection]);
     setExpandedModules(prev => ({ ...prev, [newSection.id]: true }));
   };
 
-  const updateSectionTitle = (id, newTitle) => updateContent(activeContent.map(sec => sec?.id === id ? { ...sec, title: newTitle } : sec));
-  const deleteSection = (id) => { if (window.confirm('Deseja excluir este módulo inteiro?')) updateContent(activeContent.filter(sec => sec?.id !== id)); };
-  const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).map(item => item?.id === itemId ? { ...item, title: newTitle } : item) } : sec));
-  const deleteItem = (sectionId, itemId) => { if (window.confirm('Apagar este material definitivamente?')) updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).filter(item => item?.id !== itemId) } : sec)); };
-
-  const handleOpenAddItemModal = (sectionId) => {
-    setActiveSectionForNewItem(sectionId); setNewItemTitle(''); setNewItemType('FileText'); setNewItemUrl(''); setNewItemTextContent(''); setNewFile(null);
+  const updateSectionTitle = (id, newTitle) => {
+    updateContent(activeContent.map(sec => sec?.id === id ? { ...sec, title: newTitle } : sec));
   };
 
+  const deleteSection = (id) => {
+    if (window.confirm('Deseja excluir este módulo e todos os seus itens?')) {
+      updateContent(activeContent.filter(sec => sec?.id !== id));
+    }
+  };
+
+  const updateItemTitle = (sectionId, itemId, newTitle) => {
+    updateContent(activeContent.map(sec => {
+      if (sec?.id === sectionId) {
+        return { 
+          ...sec, 
+          items: (sec.items || []).map(item => item?.id === itemId ? { ...item, title: newTitle } : item) 
+        };
+      }
+      return sec;
+    }));
+  };
+
+  const deleteItem = (sectionId, itemId) => {
+    if (window.confirm('Apagar este material permanentemente?')) {
+      updateContent(activeContent.map(sec => {
+        if (sec?.id === sectionId) {
+          return { 
+            ...sec, 
+            items: (sec.items || []).filter(item => item?.id !== itemId) 
+          };
+        }
+        return sec;
+      }));
+    }
+  };
+
+  const handleOpenAddItemModal = (sectionId) => {
+    setActiveSectionForNewItem(sectionId);
+    setNewItemTitle('');
+    setNewItemType('FileText');
+    setNewItemUrl('');
+    setNewItemTextContent('');
+    setNewFile(null);
+  };
+
+  // UPLOAD E PUBLICAÇÃO DE MATERIAIS NA NUVEM
   const handleConfirmAddItem = async (e) => {
     e.preventDefault();
     if (!newItemTitle) return;
@@ -340,6 +479,7 @@ function LmsEnterprisePortal() {
     let finalFileName = newFile ? newFile.name : null;
     const finalItemId = `item_${Date.now()}`;
 
+    // Executa Upload no Firebase Storage se houver arquivo local
     if ((newItemType === 'FileText' || newItemType === 'Upload') && newFile) {
       setIsUploading(true);
       try {
@@ -347,31 +487,60 @@ function LmsEnterprisePortal() {
         await uploadBytes(fileRef, newFile);
         finalUrl = await getDownloadURL(fileRef);
       } catch (err) {
-        alert("Erro no Upload! Verifique as regras do Firebase Storage na aba Rules.");
-        setIsUploading(false); return;
+        console.error("Erro de upload no Storage:", err);
+        alert("Erro no Upload! Verifique se ativou as regras do Firebase Storage.");
+        setIsUploading(false);
+        return;
       }
       setIsUploading(false);
     }
 
-    if (newItemType === 'MessageSquare') setDbForums({ ...forums, [finalItemId]: [] }); 
-    if (newItemType === 'NativeExam') setDbExams({ ...exams, [finalItemId]: { questions: [], submissions: {} } }); 
+    // Inicializa estruturas de dados para Fóruns ou Provas Nativas
+    if (newItemType === 'MessageSquare') {
+      setDbForums({ ...forums, [finalItemId]: [] }); 
+    }
+    
+    if (newItemType === 'NativeExam') {
+      setDbExams({ ...exams, [finalItemId]: { questions: [], submissions: {} } }); 
+    }
 
     updateContent(activeContent.map(sec => {
       if (sec?.id === activeSectionForNewItem) {
-        return { ...sec, items: [...(sec.items || []), { id: finalItemId, title: newItemTitle, type: newItemType, color: color, url: finalUrl, fileName: finalFileName, textContent: newItemType === 'TextContent' ? newItemTextContent : null }] };
+        return {
+          ...sec,
+          items: [...(sec.items || []), { 
+            id: finalItemId, 
+            title: newItemTitle, 
+            type: newItemType, 
+            color: color, 
+            url: finalUrl, 
+            fileName: finalFileName, 
+            textContent: newItemType === 'TextContent' ? newItemTextContent : null
+          }]
+        };
       }
       return sec;
     }));
+    
     setActiveSectionForNewItem(null); 
   };
 
+  // ----------------------------------------
+  // NOTAS E DIÁRIO DE CLASSE (FREQUÊNCIA)
+  // ----------------------------------------
   const updateGrade = (studentId, field, value) => {
-    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s);
+    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => {
+      if (s?.studentId === studentId) return { ...s, [field]: parseFloat(value) || 0 };
+      return s;
+    });
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
   };
 
   const updateFeedback = (studentId, value) => {
-    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => s?.studentId === studentId ? { ...s, feedback: value } : s);
+    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => {
+      if (s?.studentId === studentId) return { ...s, feedback: value };
+      return s;
+    });
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
   };
 
@@ -390,18 +559,24 @@ function LmsEnterprisePortal() {
   const handleAddAttendanceCol = () => {
     const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00):");
     if (!label) return;
+    
     const currentCols = attendanceCols[activeCourseId] || [];
     const newCols = [...currentCols, { id: `col_${Date.now()}`, label }];
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
-    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => ({ ...s, faltas: [...(s.faltas || []), false] }));
+    
+    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => ({
+      ...s, faltas: [...(s.faltas || []), false] 
+    }));
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
   };
 
   const handleRemoveAttendanceCol = (colIndex) => {
     if (!window.confirm('Deseja excluir esta aula do diário? A ação é irreversível.')) return;
+    
     const currentCols = attendanceCols[activeCourseId] || [];
     const newCols = currentCols.filter((_, i) => i !== colIndex);
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
+    
     const updatedStudents = (courseStudents[activeCourseId] || []).map(s => {
       const newFaltas = [...(s.faltas || [])];
       newFaltas.splice(colIndex, 1);
@@ -424,20 +599,28 @@ function LmsEnterprisePortal() {
     }
   };
 
+  // Variáveis Derivadas Globais da Disciplina
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
   const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
   const currentAttendanceCols = attendanceCols[activeCourseId] || [];
   const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
 
   const studentsInCourse = rawActiveStudents.map(enrollment => ({
-    ...enrollment, nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído'
+    ...enrollment, 
+    nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído'
   }));
 
-  const visibleGradesAndAttendance = role === 'aluno' ? studentsInCourse.filter(s => s.studentId === currentUser.id) : studentsInCourse;
-  const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id));
+  const visibleGradesAndAttendance = role === 'aluno' 
+    ? studentsInCourse.filter(s => s.studentId === currentUser.id) 
+    : studentsInCourse;
+
+  const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => 
+    u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id)
+  );
+
 
   // ==========================================
-  // RENDER: PERFIL DE USUÁRIO
+  // RENDERIZAÇÃO: MODAL DE PERFIL DE USUÁRIO
   // ==========================================
   const renderProfileModal = () => {
     const profileUser = systemUsers[viewingProfileId];
@@ -457,7 +640,10 @@ function LmsEnterprisePortal() {
 
     const saveProfile = (e) => {
       e.preventDefault();
-      setDbUsers({ ...systemUsers, [viewingProfileId]: { ...profileUser, ...editProfileData } });
+      setDbUsers({ 
+        ...systemUsers, 
+        [viewingProfileId]: { ...profileUser, ...editProfileData } 
+      });
       setEditProfileData(null);
     };
 
@@ -480,7 +666,7 @@ function LmsEnterprisePortal() {
             {editProfileData ? (
               <form onSubmit={saveProfile} className="space-y-6">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Sua Biografia e Formação</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Sua Biografia e Formação Acadêmica</label>
                   <textarea value={editProfileData.bio} onChange={e => setEditProfileData({...editProfileData, bio: e.target.value})} placeholder="Escreva sobre sua especialidade..." className="w-full border border-slate-300 p-3 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none h-24 bg-white"></textarea>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -495,7 +681,7 @@ function LmsEnterprisePortal() {
                 </div>
                 <div className="bg-teal-50 border border-teal-200 p-4 rounded-xl flex items-center justify-between">
                   <div>
-                    <strong className="block text-sm text-teal-900">Visibilidade de Contatos</strong>
+                    <strong className="block text-sm text-teal-900">Visibilidade Pública de Contatos</strong>
                     <span className="text-xs text-teal-700 block mt-0.5">Se ativo, alunos verão seu email e telefone publicamente.</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -505,7 +691,7 @@ function LmsEnterprisePortal() {
                 </div>
                 <div className="flex gap-3 justify-end pt-4 border-t border-slate-200">
                   <button type="button" onClick={() => setEditProfileData(null)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-200 transition">Cancelar</button>
-                  <button type="submit" className="bg-teal-800 text-white font-bold px-8 py-2.5 rounded-xl hover:bg-teal-900 transition shadow-md flex items-center gap-2"><Check className="w-4 h-4"/> Salvar Perfil</button>
+                  <button type="submit" className="bg-teal-800 text-white font-bold px-8 py-2.5 rounded-xl hover:bg-teal-900 transition shadow-md flex items-center gap-2"><Check className="w-4 h-4"/> Salvar Alterações</button>
                 </div>
               </form>
             ) : (
@@ -518,13 +704,13 @@ function LmsEnterprisePortal() {
                 </div>
                 
                 <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Contato Direto</h3>
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Informações de Contato</h3>
                   {canSeePrivate ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Mail className="w-5 h-5"/></div>
                         <div className="overflow-hidden">
-                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">E-mail Institucional</span>
+                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">E-mail</span>
                           <span className="font-medium text-slate-800 truncate block">{profileUser.email || 'Não informado'}</span>
                         </div>
                       </div>
@@ -546,7 +732,7 @@ function LmsEnterprisePortal() {
                 {isMe && (
                   <div className="pt-6 border-t border-slate-200 flex justify-center">
                     <button onClick={startEditingProfile} className="bg-slate-800 text-white font-bold px-8 py-3 rounded-xl hover:bg-slate-900 transition shadow-md flex items-center gap-2">
-                      <Edit2 className="w-4 h-4"/> Configurar Meu Perfil
+                      <Edit2 className="w-4 h-4"/> Editar Meu Perfil
                     </button>
                   </div>
                 )}
@@ -558,8 +744,9 @@ function LmsEnterprisePortal() {
     );
   };
 
+
   // ==========================================
-  // RENDER: FÓRUM PROFISSIONAL (PHPBB)
+  // RENDER: FÓRUM PROFISSIONAL (PHPBB STYLE)
   // ==========================================
   const renderForumModal = () => {
     const forumData = forums[activeForumItem.id] || []; 
@@ -572,7 +759,14 @@ function LmsEnterprisePortal() {
       if(!title) return;
       
       const newTopic = { 
-        id: `topic_${Date.now()}`, title: title, description: desc, authorId: currentUser.id, authorName: currentUser.nome, avatar: currentUser.avatar, createdAt: new Date().toISOString(), replies: [] 
+        id: `topic_${Date.now()}`, 
+        title: title, 
+        description: desc, 
+        authorId: currentUser.id, 
+        authorName: currentUser.nome, 
+        avatar: currentUser.avatar, 
+        createdAt: new Date().toISOString(), 
+        replies: [] 
       };
       
       setDbForums({ ...forums, [activeForumItem.id]: [...forumData, newTopic] });
@@ -585,10 +779,21 @@ function LmsEnterprisePortal() {
       if(!text) return;
       
       const newReply = { 
-        id: `rep_${Date.now()}`, text: text, authorId: currentUser.id, authorName: currentUser.nome, avatar: currentUser.avatar, createdAt: new Date().toISOString() 
+        id: `rep_${Date.now()}`, 
+        text: text, 
+        authorId: currentUser.id, 
+        authorName: currentUser.nome, 
+        avatar: currentUser.avatar, 
+        createdAt: new Date().toISOString() 
       };
       
-      const updatedTopics = forumData.map(t => t.id === activeTopicId ? { ...t, replies: [...(t.replies || []), newReply] } : t);
+      const updatedTopics = forumData.map(t => {
+        if (t.id === activeTopicId) {
+          return { ...t, replies: [...(t.replies || []), newReply] };
+        }
+        return t;
+      });
+      
       setDbForums({ ...forums, [activeForumItem.id]: updatedTopics });
       e.target.reset();
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -600,13 +805,17 @@ function LmsEnterprisePortal() {
           
           <div className="p-5 border-b border-purple-800 flex justify-between items-center bg-purple-900 text-white shrink-0">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-800 rounded-lg"><MessageCircle className="w-6 h-6 text-purple-200"/></div>
+              <div className="p-2 bg-purple-800 rounded-lg">
+                <MessageCircle className="w-6 h-6 text-purple-200"/>
+              </div>
               <div>
                 <h2 className="font-bold text-lg leading-tight">{activeForumItem.title}</h2>
                 <p className="text-[11px] text-purple-300 uppercase tracking-widest font-bold">Fórum Acadêmico Oficial</p>
               </div>
             </div>
-            <button onClick={() => { setActiveForumItem(null); setActiveTopicId(null); }} className="p-2 text-purple-200 hover:bg-purple-800 rounded-full transition-colors"><X className="w-6 h-6"/></button>
+            <button onClick={() => { setActiveForumItem(null); setActiveTopicId(null); }} className="p-2 text-purple-200 hover:bg-purple-800 rounded-full transition-colors">
+              <X className="w-6 h-6"/>
+            </button>
           </div>
           
           <div className="flex-1 flex overflow-hidden">
@@ -903,7 +1112,7 @@ function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // RENDERIZAÇÕES PRINCIPAIS
+  // RENDER: TELAS DE DASHBOARD E CURSO
   // ==========================================
   const renderUserHome = () => (
     <div className="space-y-6 animate-fade-in">
@@ -1389,9 +1598,13 @@ function LmsEnterprisePortal() {
     </div>
   );
 
+  // ==========================================
+  // ESTRUTURA GERAL DA PLATAFORMA (Layout Shell)
+  // ==========================================
   return (
     <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-800 overflow-hidden print:bg-white print:h-auto print:overflow-visible">
       
+      {/* MENU LATERAL ESQUERDO */}
       <aside className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 text-slate-300 transition-all duration-300 flex flex-col flex-shrink-0 shadow-2xl z-20 relative print:hidden`}>
         <div className="h-20 flex items-center justify-between px-5 border-b border-slate-800">
           {sidebarOpen && <span className="font-black text-white text-lg tracking-tight leading-tight">Portal <span className="text-teal-400">COREMU</span></span>}
@@ -1402,6 +1615,7 @@ function LmsEnterprisePortal() {
         
         <div className="flex-1 overflow-y-auto py-6 no-scrollbar">
           <nav className="space-y-2 px-4">
+            
             {role === 'admin' && (
               <>
                 <button onClick={() => {setCurrentView('admin_dashboard'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-sm font-bold transition-colors ${currentView === 'admin_dashboard' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
