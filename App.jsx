@@ -61,9 +61,6 @@ class ErrorBoundary extends React.Component {
           <pre className="bg-white p-4 border border-red-200 rounded-xl text-xs text-red-600 overflow-x-auto whitespace-pre-wrap shadow-sm">
             {this.state.error?.toString()}
           </pre>
-          <pre className="bg-white p-4 border border-red-200 rounded-xl text-xs text-slate-600 overflow-x-auto mt-4 whitespace-pre-wrap shadow-sm">
-            {this.state.info?.componentStack}
-          </pre>
         </div>
       );
     }
@@ -79,10 +76,7 @@ const useFirestoreDB = (docName, initialValue) => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!db) { 
-      setIsLoaded(true); 
-      return; 
-    }
+    if (!db) { setIsLoaded(true); return; }
     
     const unsub = onSnapshot(
       doc(db, 'coremu_database', docName), 
@@ -122,7 +116,6 @@ const useFirestoreDB = (docName, initialValue) => {
   return [data, updateData, isLoaded];
 };
 
-// Configurações avançadas da barra de ferramentas do Editor de Texto Rico (React Quill)
 const quillModules = {
   toolbar: [
     [{ 'header': [1, 2, 3, false] }],
@@ -138,11 +131,9 @@ const quillModules = {
 // ==========================================
 function LmsEnterprisePortal() {
   
-  // ----------------------------------------
-  // BANCO DE DADOS EM NUVEM (FIRESTORE)
-  // ----------------------------------------
+  // Banco de Dados Firestore
   const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users', {
-    'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC', email: 'gestao@haco.mil.br', phone: '(51) 3333-4444', bio: 'Gestão Geral do Programa de Residência Multiprofissional em Saúde.', showContactPublicly: true },
+    'admin1': { id: 'admin1', nome: 'Gestão COREMU', role: 'admin', avatar: 'GC', email: 'gestao@haco.mil.br', phone: '(51) 3333-4444', bio: 'Gestão Geral do Programa de Residência Multiprofissional.', showContactPublicly: true },
     'prof1': { id: 'prof1', nome: '1º Ten Norberto Cimirro', role: 'professor', avatar: 'NC', email: 'norberto@haco.mil.br', phone: '(51) 99999-9999', bio: 'Enfermeiro da Força Aérea Brasileira. Pós-graduado em Gestão de Saúde, Auditoria e Enfermagem Aeroespacial.', showContactPublicly: true },
     'stu1': { id: 'stu1', nome: 'Mariana Alves', role: 'aluno', avatar: 'MA', email: 'mariana.aluno@teste.com', phone: '(51) 98888-8888', bio: 'Residente R1 de Enfermagem.', showContactPublicly: false }
   });
@@ -169,7 +160,7 @@ function LmsEnterprisePortal() {
   const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums_v3', {});
   const [dbExams, setDbExams, examsLoaded] = useFirestoreDB('tb_exams_v1', {});
 
-  // Blindagem rigorosa de variáveis contra nulos/undefined
+  // Blindagem de Variáveis
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
@@ -178,9 +169,7 @@ function LmsEnterprisePortal() {
   const forums = typeof dbForums === 'object' && dbForums !== null ? dbForums : {};
   const exams = typeof dbExams === 'object' && dbExams !== null ? dbExams : {};
 
-  // ----------------------------------------
-  // ESTADOS GLOBAIS DE INTERFACE E SESSÃO
-  // ----------------------------------------
+  // Estados Globais de Sessão e Navegação
   const [activeUserId, setActiveUserId] = useState('admin1');
   const currentUser = systemUsers[activeUserId] || systemUsers['admin1'] || { id: 'admin1', nome: 'Gestão', role: 'admin', avatar: 'GC' };
   const role = currentUser?.role || 'admin';
@@ -194,9 +183,7 @@ function LmsEnterprisePortal() {
   const hasEditPermission = role === 'admin' || role === 'professor';
   const isEditing = editMode && hasEditPermission;
 
-  // ----------------------------------------
-  // ESTADOS DE FORMULÁRIOS E MODAIS GERAIS
-  // ----------------------------------------
+  // Estados de Modais e Formulários
   const [activeSectionForNewItem, setActiveSectionForNewItem] = useState(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemType, setNewItemType] = useState('FileText');
@@ -214,9 +201,7 @@ function LmsEnterprisePortal() {
   const [newCourseProfId, setNewCourseProfId] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
 
-  // ----------------------------------------
-  // ESTADOS DOS MÓDULOS DE AULA E PERFIS
-  // ----------------------------------------
+  // Estados de Módulos AVA e Perfis
   const [readingItem, setReadingItem] = useState(null); 
   const [activeForumItem, setActiveForumItem] = useState(null); 
   const [activeTopicId, setActiveTopicId] = useState(null); 
@@ -228,9 +213,7 @@ function LmsEnterprisePortal() {
 
   const chatEndRef = useRef(null); 
 
-  // ----------------------------------------
-  // VERIFICAÇÃO DE PRONTIDÃO DO BANCO DE DADOS
-  // ----------------------------------------
+  // Verificação de Prontidão
   const isDbReady = usersLoaded && coursesLoaded && contentsLoaded && studentsLoaded && colsLoaded && forumsLoaded && examsLoaded;
   
   if (!isDbReady) {
@@ -243,9 +226,7 @@ function LmsEnterprisePortal() {
     );
   }
 
-  // ----------------------------------------
-  // NAVEGAÇÃO E FILTRAGEM POR PERMISSÕES (RBAC)
-  // ----------------------------------------
+  // Navegação e RBAC
   const visibleCourses = courses.filter(c => {
     if (!c) return false;
     if (role === 'admin') return true;
@@ -266,38 +247,23 @@ function LmsEnterprisePortal() {
     setCurrentView(newRole === 'admin' ? 'admin_dashboard' : 'user_home'); 
   };
 
-  // ----------------------------------------
-  // GESTÃO DE USUÁRIOS E DIRETÓRIO
-  // ----------------------------------------
+  // Funções de Gestão de Usuários
   const handleCreateUser = (e) => {
     e.preventDefault();
     if (!newUserName) return;
-    
     const newId = `usr_${Date.now()}`;
     const initials = newUserName.substring(0, 2).toUpperCase();
-    
-    const newUserObject = { 
-      id: newId, 
-      nome: newUserName, 
-      role: newUserRole, 
-      avatar: initials, 
-      email: '', 
-      phone: '', 
-      bio: 'Novo membro cadastrado no sistema.', 
-      showContactPublicly: false 
-    };
-
-    setDbUsers({ ...systemUsers, [newId]: newUserObject });
+    setDbUsers({ 
+      ...systemUsers, 
+      [newId]: { id: newId, nome: newUserName, role: newUserRole, avatar: initials, email: '', phone: '', bio: '', showContactPublicly: false } 
+    });
     setNewUserName('');
-    alert('Usuário cadastrado com sucesso na nuvem!');
+    alert('Usuário cadastrado com sucesso!');
   };
 
   const handleDeleteUser = (id) => {
-    if (id === 'admin1') {
-      return alert('O Administrador principal do sistema não pode ser apagado.');
-    }
-    
-    if (window.confirm('Deseja excluir este usuário permanentemente do banco de dados?')) {
+    if (id === 'admin1') return alert('O Administrador principal não pode ser apagado.');
+    if (window.confirm('Deseja excluir este usuário permanentemente?')) {
       const updatedUsers = { ...systemUsers };
       delete updatedUsers[id];
       setDbUsers(updatedUsers);
@@ -312,14 +278,12 @@ function LmsEnterprisePortal() {
 
   const handleSaveEditedUser = (id) => {
     if (!editingUserName.trim()) return alert("O nome não pode ficar em branco.");
-    
     const updatedUsers = { ...systemUsers };
     if(updatedUsers[id]) {
       updatedUsers[id].nome = editingUserName;
       updatedUsers[id].avatar = editingUserName.substring(0, 2).toUpperCase();
       setDbUsers(updatedUsers);
     }
-    
     setEditingUserId(null);
     setEditingUserName('');
   };
@@ -329,34 +293,23 @@ function LmsEnterprisePortal() {
     setEditingUserName('');
   };
 
-  // ----------------------------------------
-  // GESTÃO DE DISCIPLINAS E MATRÍCULAS
-  // ----------------------------------------
+  // Funções de Disciplinas e Matrículas
   const handleCreateCourse = (e) => {
     e.preventDefault();
     if (!newCourseCode || !newCourseName || !newCourseProfId) return;
-    
     const newId = `c_${Date.now()}`;
-    
     setDbCourses([...courses, { id: newId, codigo: newCourseCode, nome: newCourseName, professorId: newCourseProfId }]);
     setDbContents({ ...courseContents, [newId]: defaultModules });
     setDbStudents({ ...courseStudents, [newId]: [] });
     setDbAttendanceCols({ ...attendanceCols, [newId]: [] }); 
-    
-    setNewCourseCode(''); 
-    setNewCourseName(''); 
-    setNewCourseProfId('');
-    
-    alert('Disciplina criada e sincronizada com sucesso!');
+    setNewCourseCode(''); setNewCourseName(''); setNewCourseProfId('');
+    alert('Disciplina criada com sucesso!');
   };
 
   const handleDeleteCourse = (id) => {
-    if (window.confirm('Atenção: Excluir esta disciplina apagará todo o seu conteúdo didático para sempre. Confirmar exclusão?')) {
+    if (window.confirm('Atenção: Excluir esta disciplina apagará todo o conteúdo para sempre. Confirmar?')) {
       setDbCourses(courses.filter(c => c && c.id !== id));
-      if (activeCourseId === id) { 
-        setActiveCourseId(null); 
-        setCurrentView('admin_dashboard'); 
-      }
+      if (activeCourseId === id) { setActiveCourseId(null); setCurrentView('admin_dashboard'); }
     }
   };
 
@@ -367,23 +320,10 @@ function LmsEnterprisePortal() {
   const handleEnrollStudent = (e, courseId) => {
     e.preventDefault();
     if (!newStudentId) return;
-    
     const currentColsLength = (attendanceCols[courseId] || []).length;
-    
-    const newStudentData = { 
-      studentId: newStudentId, 
-      ga: 0, gb: 0, gc: 0, 
-      faltas: new Array(currentColsLength).fill(false), 
-      feedback: "" 
-    };
-    
+    const newStudentData = { studentId: newStudentId, ga: 0, gb: 0, gc: 0, faltas: new Array(currentColsLength).fill(false), feedback: "" };
     const currentEnrolled = Array.isArray(courseStudents[courseId]) ? courseStudents[courseId] : [];
-    
-    setDbStudents({ 
-      ...courseStudents, 
-      [courseId]: [...currentEnrolled, newStudentData] 
-    });
-    
+    setDbStudents({ ...courseStudents, [courseId]: [...currentEnrolled, newStudentData] });
     setNewStudentId('');
   };
 
@@ -394,75 +334,25 @@ function LmsEnterprisePortal() {
     }
   };
 
-  // ----------------------------------------
-  // GESTÃO DE MÓDULOS E CONTEÚDOS DIDÁTICOS
-  // ----------------------------------------
-  const toggleModule = (id) => {
-    setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const updateContent = (newContent) => {
-    setDbContents({ ...courseContents, [activeCourseId]: newContent });
-  };
+  // Gestão de Conteúdos e Módulos
+  const toggleModule = (id) => setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
+  const updateContent = (newContent) => setDbContents({ ...courseContents, [activeCourseId]: newContent });
 
   const addSection = () => {
-    const newSection = { 
-      id: `sec_${Date.now()}`, 
-      title: 'Novo Módulo ou Unidade Temática', 
-      bgColor: 'bg-slate-50', 
-      borderColor: 'border-slate-200', 
-      items: [] 
-    };
+    const newSection = { id: `sec_${Date.now()}`, title: 'Novo Módulo / Semestre', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', items: [] };
     updateContent([...activeContent, newSection]);
     setExpandedModules(prev => ({ ...prev, [newSection.id]: true }));
   };
 
-  const updateSectionTitle = (id, newTitle) => {
-    updateContent(activeContent.map(sec => sec?.id === id ? { ...sec, title: newTitle } : sec));
-  };
-
-  const deleteSection = (id) => {
-    if (window.confirm('Deseja excluir este módulo e todos os seus itens?')) {
-      updateContent(activeContent.filter(sec => sec?.id !== id));
-    }
-  };
-
-  const updateItemTitle = (sectionId, itemId, newTitle) => {
-    updateContent(activeContent.map(sec => {
-      if (sec?.id === sectionId) {
-        return { 
-          ...sec, 
-          items: (sec.items || []).map(item => item?.id === itemId ? { ...item, title: newTitle } : item) 
-        };
-      }
-      return sec;
-    }));
-  };
-
-  const deleteItem = (sectionId, itemId) => {
-    if (window.confirm('Apagar este material permanentemente?')) {
-      updateContent(activeContent.map(sec => {
-        if (sec?.id === sectionId) {
-          return { 
-            ...sec, 
-            items: (sec.items || []).filter(item => item?.id !== itemId) 
-          };
-        }
-        return sec;
-      }));
-    }
-  };
+  const updateSectionTitle = (id, newTitle) => updateContent(activeContent.map(sec => sec?.id === id ? { ...sec, title: newTitle } : sec));
+  const deleteSection = (id) => { if (window.confirm('Deseja excluir este módulo inteiro?')) updateContent(activeContent.filter(sec => sec?.id !== id)); };
+  const updateItemTitle = (sectionId, itemId, newTitle) => updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).map(item => item?.id === itemId ? { ...item, title: newTitle } : item) } : sec));
+  const deleteItem = (sectionId, itemId) => { if (window.confirm('Apagar este material definitivamente?')) updateContent(activeContent.map(sec => sec?.id === sectionId ? { ...sec, items: (sec.items || []).filter(item => item?.id !== itemId) } : sec)); };
 
   const handleOpenAddItemModal = (sectionId) => {
-    setActiveSectionForNewItem(sectionId);
-    setNewItemTitle('');
-    setNewItemType('FileText');
-    setNewItemUrl('');
-    setNewItemTextContent('');
-    setNewFile(null);
+    setActiveSectionForNewItem(sectionId); setNewItemTitle(''); setNewItemType('FileText'); setNewItemUrl(''); setNewItemTextContent(''); setNewFile(null);
   };
 
-  // UPLOAD E PUBLICAÇÃO DE MATERIAIS NA NUVEM
   const handleConfirmAddItem = async (e) => {
     e.preventDefault();
     if (!newItemTitle) return;
@@ -479,7 +369,6 @@ function LmsEnterprisePortal() {
     let finalFileName = newFile ? newFile.name : null;
     const finalItemId = `item_${Date.now()}`;
 
-    // Executa Upload no Firebase Storage se houver arquivo local
     if ((newItemType === 'FileText' || newItemType === 'Upload') && newFile) {
       setIsUploading(true);
       try {
@@ -487,60 +376,32 @@ function LmsEnterprisePortal() {
         await uploadBytes(fileRef, newFile);
         finalUrl = await getDownloadURL(fileRef);
       } catch (err) {
-        console.error("Erro de upload no Storage:", err);
-        alert("Erro no Upload! Verifique se ativou as regras do Firebase Storage.");
-        setIsUploading(false);
-        return;
+        alert("Erro no Upload! Verifique as regras do Firebase Storage na aba Rules.");
+        setIsUploading(false); return;
       }
       setIsUploading(false);
     }
 
-    // Inicializa estruturas de dados para Fóruns ou Provas Nativas
-    if (newItemType === 'MessageSquare') {
-      setDbForums({ ...forums, [finalItemId]: [] }); 
-    }
-    
-    if (newItemType === 'NativeExam') {
-      setDbExams({ ...exams, [finalItemId]: { questions: [], submissions: {} } }); 
-    }
+    if (newItemType === 'MessageSquare') setDbForums({ ...forums, [finalItemId]: [] }); 
+    if (newItemType === 'NativeExam') setDbExams({ ...exams, [finalItemId]: { questions: [], submissions: {} } }); 
 
     updateContent(activeContent.map(sec => {
       if (sec?.id === activeSectionForNewItem) {
-        return {
-          ...sec,
-          items: [...(sec.items || []), { 
-            id: finalItemId, 
-            title: newItemTitle, 
-            type: newItemType, 
-            color: color, 
-            url: finalUrl, 
-            fileName: finalFileName, 
-            textContent: newItemType === 'TextContent' ? newItemTextContent : null
-          }]
-        };
+        return { ...sec, items: [...(sec.items || []), { id: finalItemId, title: newItemTitle, type: newItemType, color: color, url: finalUrl, fileName: finalFileName, textContent: newItemType === 'TextContent' ? newItemTextContent : null }] };
       }
       return sec;
     }));
-    
     setActiveSectionForNewItem(null); 
   };
 
-  // ----------------------------------------
-  // NOTAS E DIÁRIO DE CLASSE (FREQUÊNCIA)
-  // ----------------------------------------
+  // Notas e Frequência
   const updateGrade = (studentId, field, value) => {
-    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => {
-      if (s?.studentId === studentId) return { ...s, [field]: parseFloat(value) || 0 };
-      return s;
-    });
+    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => s?.studentId === studentId ? { ...s, [field]: parseFloat(value) || 0 } : s);
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
   };
 
   const updateFeedback = (studentId, value) => {
-    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => {
-      if (s?.studentId === studentId) return { ...s, feedback: value };
-      return s;
-    });
+    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => s?.studentId === studentId ? { ...s, feedback: value } : s);
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
   };
 
@@ -559,24 +420,18 @@ function LmsEnterprisePortal() {
   const handleAddAttendanceCol = () => {
     const label = prompt("Digite a data e horário da aula (Ex: 15/09 - 08:00):");
     if (!label) return;
-    
     const currentCols = attendanceCols[activeCourseId] || [];
     const newCols = [...currentCols, { id: `col_${Date.now()}`, label }];
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
-    
-    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => ({
-      ...s, faltas: [...(s.faltas || []), false] 
-    }));
+    const updatedStudents = (courseStudents[activeCourseId] || []).map(s => ({ ...s, faltas: [...(s.faltas || []), false] }));
     setDbStudents({ ...courseStudents, [activeCourseId]: updatedStudents });
   };
 
   const handleRemoveAttendanceCol = (colIndex) => {
     if (!window.confirm('Deseja excluir esta aula do diário? A ação é irreversível.')) return;
-    
     const currentCols = attendanceCols[activeCourseId] || [];
     const newCols = currentCols.filter((_, i) => i !== colIndex);
     setDbAttendanceCols({ ...attendanceCols, [activeCourseId]: newCols });
-    
     const updatedStudents = (courseStudents[activeCourseId] || []).map(s => {
       const newFaltas = [...(s.faltas || [])];
       newFaltas.splice(colIndex, 1);
@@ -599,28 +454,21 @@ function LmsEnterprisePortal() {
     }
   };
 
-  // Variáveis Derivadas Globais da Disciplina
   const activeContent = Array.isArray(courseContents[activeCourseId]) ? courseContents[activeCourseId] : [];
   const rawActiveStudents = Array.isArray(courseStudents[activeCourseId]) ? courseStudents[activeCourseId] : [];
   const currentAttendanceCols = attendanceCols[activeCourseId] || [];
   const activeCourseObj = courses.find(c => c && c.id === activeCourseId) || {};
 
   const studentsInCourse = rawActiveStudents.map(enrollment => ({
-    ...enrollment, 
-    nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído'
+    ...enrollment, nome: systemUsers[enrollment?.studentId]?.nome || 'Usuário Excluído'
   }));
 
-  const visibleGradesAndAttendance = role === 'aluno' 
-    ? studentsInCourse.filter(s => s.studentId === currentUser.id) 
-    : studentsInCourse;
-
-  const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => 
-    u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id)
-  );
+  const visibleGradesAndAttendance = role === 'aluno' ? studentsInCourse.filter(s => s.studentId === currentUser.id) : studentsInCourse;
+  const availableStudentsForEnrollment = Object.values(systemUsers).filter(u => u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id));
 
 
   // ==========================================
-  // RENDERIZAÇÃO: MODAL DE PERFIL DE USUÁRIO
+  // RENDER: PERFIL DE USUÁRIO
   // ==========================================
   const renderProfileModal = () => {
     const profileUser = systemUsers[viewingProfileId];
@@ -640,10 +488,7 @@ function LmsEnterprisePortal() {
 
     const saveProfile = (e) => {
       e.preventDefault();
-      setDbUsers({ 
-        ...systemUsers, 
-        [viewingProfileId]: { ...profileUser, ...editProfileData } 
-      });
+      setDbUsers({ ...systemUsers, [viewingProfileId]: { ...profileUser, ...editProfileData } });
       setEditProfileData(null);
     };
 
@@ -666,7 +511,7 @@ function LmsEnterprisePortal() {
             {editProfileData ? (
               <form onSubmit={saveProfile} className="space-y-6">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Sua Biografia e Formação Acadêmica</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Sua Biografia e Formação</label>
                   <textarea value={editProfileData.bio} onChange={e => setEditProfileData({...editProfileData, bio: e.target.value})} placeholder="Escreva sobre sua especialidade..." className="w-full border border-slate-300 p-3 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none h-24 bg-white"></textarea>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -681,7 +526,7 @@ function LmsEnterprisePortal() {
                 </div>
                 <div className="bg-teal-50 border border-teal-200 p-4 rounded-xl flex items-center justify-between">
                   <div>
-                    <strong className="block text-sm text-teal-900">Visibilidade Pública de Contatos</strong>
+                    <strong className="block text-sm text-teal-900">Visibilidade de Contatos</strong>
                     <span className="text-xs text-teal-700 block mt-0.5">Se ativo, alunos verão seu email e telefone publicamente.</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -691,7 +536,7 @@ function LmsEnterprisePortal() {
                 </div>
                 <div className="flex gap-3 justify-end pt-4 border-t border-slate-200">
                   <button type="button" onClick={() => setEditProfileData(null)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-200 transition">Cancelar</button>
-                  <button type="submit" className="bg-teal-800 text-white font-bold px-8 py-2.5 rounded-xl hover:bg-teal-900 transition shadow-md flex items-center gap-2"><Check className="w-4 h-4"/> Salvar Alterações</button>
+                  <button type="submit" className="bg-teal-800 text-white font-bold px-8 py-2.5 rounded-xl hover:bg-teal-900 transition shadow-md flex items-center gap-2"><Check className="w-4 h-4"/> Salvar Perfil</button>
                 </div>
               </form>
             ) : (
@@ -704,13 +549,13 @@ function LmsEnterprisePortal() {
                 </div>
                 
                 <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Informações de Contato</h3>
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Contato Direto</h3>
                   {canSeePrivate ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Mail className="w-5 h-5"/></div>
                         <div className="overflow-hidden">
-                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">E-mail</span>
+                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">E-mail Institucional</span>
                           <span className="font-medium text-slate-800 truncate block">{profileUser.email || 'Não informado'}</span>
                         </div>
                       </div>
@@ -732,7 +577,7 @@ function LmsEnterprisePortal() {
                 {isMe && (
                   <div className="pt-6 border-t border-slate-200 flex justify-center">
                     <button onClick={startEditingProfile} className="bg-slate-800 text-white font-bold px-8 py-3 rounded-xl hover:bg-slate-900 transition shadow-md flex items-center gap-2">
-                      <Edit2 className="w-4 h-4"/> Editar Meu Perfil
+                      <Edit2 className="w-4 h-4"/> Configurar Meu Perfil
                     </button>
                   </div>
                 )}
@@ -744,9 +589,8 @@ function LmsEnterprisePortal() {
     );
   };
 
-
   // ==========================================
-  // RENDER: FÓRUM PROFISSIONAL (PHPBB STYLE)
+  // RENDER: FÓRUM PROFISSIONAL (PHPBB)
   // ==========================================
   const renderForumModal = () => {
     const forumData = forums[activeForumItem.id] || []; 
@@ -759,14 +603,7 @@ function LmsEnterprisePortal() {
       if(!title) return;
       
       const newTopic = { 
-        id: `topic_${Date.now()}`, 
-        title: title, 
-        description: desc, 
-        authorId: currentUser.id, 
-        authorName: currentUser.nome, 
-        avatar: currentUser.avatar, 
-        createdAt: new Date().toISOString(), 
-        replies: [] 
+        id: `topic_${Date.now()}`, title: title, description: desc, authorId: currentUser.id, authorName: currentUser.nome, avatar: currentUser.avatar, createdAt: new Date().toISOString(), replies: [] 
       };
       
       setDbForums({ ...forums, [activeForumItem.id]: [...forumData, newTopic] });
@@ -779,21 +616,10 @@ function LmsEnterprisePortal() {
       if(!text) return;
       
       const newReply = { 
-        id: `rep_${Date.now()}`, 
-        text: text, 
-        authorId: currentUser.id, 
-        authorName: currentUser.nome, 
-        avatar: currentUser.avatar, 
-        createdAt: new Date().toISOString() 
+        id: `rep_${Date.now()}`, text: text, authorId: currentUser.id, authorName: currentUser.nome, avatar: currentUser.avatar, createdAt: new Date().toISOString() 
       };
       
-      const updatedTopics = forumData.map(t => {
-        if (t.id === activeTopicId) {
-          return { ...t, replies: [...(t.replies || []), newReply] };
-        }
-        return t;
-      });
-      
+      const updatedTopics = forumData.map(t => t.id === activeTopicId ? { ...t, replies: [...(t.replies || []), newReply] } : t);
       setDbForums({ ...forums, [activeForumItem.id]: updatedTopics });
       e.target.reset();
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -805,17 +631,13 @@ function LmsEnterprisePortal() {
           
           <div className="p-5 border-b border-purple-800 flex justify-between items-center bg-purple-900 text-white shrink-0">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-800 rounded-lg">
-                <MessageCircle className="w-6 h-6 text-purple-200"/>
-              </div>
+              <div className="p-2 bg-purple-800 rounded-lg"><MessageCircle className="w-6 h-6 text-purple-200"/></div>
               <div>
                 <h2 className="font-bold text-lg leading-tight">{activeForumItem.title}</h2>
                 <p className="text-[11px] text-purple-300 uppercase tracking-widest font-bold">Fórum Acadêmico Oficial</p>
               </div>
             </div>
-            <button onClick={() => { setActiveForumItem(null); setActiveTopicId(null); }} className="p-2 text-purple-200 hover:bg-purple-800 rounded-full transition-colors">
-              <X className="w-6 h-6"/>
-            </button>
+            <button onClick={() => { setActiveForumItem(null); setActiveTopicId(null); }} className="p-2 text-purple-200 hover:bg-purple-800 rounded-full transition-colors"><X className="w-6 h-6"/></button>
           </div>
           
           <div className="flex-1 flex overflow-hidden">
@@ -1112,7 +934,7 @@ function LmsEnterprisePortal() {
   };
 
   // ==========================================
-  // RENDER: TELAS DE DASHBOARD E CURSO
+  // RENDER: TELAS DO PAINEL PRINCIPAL
   // ==========================================
   const renderUserHome = () => (
     <div className="space-y-6 animate-fade-in">
@@ -1392,6 +1214,176 @@ function LmsEnterprisePortal() {
                         </button>
                       </td>
                     )}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderGradebook = () => (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
+      <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
+        <div>
+          <h3 className="font-bold text-lg text-slate-800">Relatório de Notas Consolidadas</h3>
+          <p className="text-xs text-slate-500 print:hidden">Lançamento de notas manuais da disciplina e feedbacks.</p>
+        </div>
+        {(role === 'professor' || role === 'admin') && (
+          <button onClick={() => window.print()} className="bg-teal-800 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+            <Printer className="w-4 h-4"/> Gerar PDF Oficial
+          </button>
+        )}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr className="bg-slate-800 text-white border-b border-slate-300 print:bg-slate-200 print:text-slate-800 print:border-b-2">
+              <th className="p-4 font-semibold w-1/4">Nome do Residente</th>
+              <th className="p-4 font-semibold border-x border-slate-600 print:border-slate-300 text-center">Nota GA</th>
+              <th className="p-4 font-semibold border-x border-slate-600 print:border-slate-300 text-center">Nota GB</th>
+              <th className="p-4 font-semibold border-x border-slate-600 print:border-slate-300 text-center">Nota GC</th>
+              <th className="p-4 font-semibold bg-teal-800 print:bg-slate-300 print:text-slate-900 text-center">Média Total</th>
+              <th className="p-4 font-semibold border-x border-slate-600 print:border-slate-300 text-center">Situação</th>
+              <th className="p-4 font-semibold">Feedback / Parecer Contínuo</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {visibleGradesAndAttendance.length === 0 ? (
+              <tr><td colSpan="7" className="p-8 text-center text-slate-500 font-medium">Turma vazia ou residente não possui acesso ao boletim.</td></tr>
+            ) : (
+              visibleGradesAndAttendance.map((aluno, idx) => {
+                if(!aluno) return null;
+                const total = ((aluno.ga||0) + (aluno.gb||0) + (aluno.gc||0)).toFixed(2);
+                const isApproved = total >= 14 || (aluno.gc > 0 && total >= 15);
+
+                return (
+                  <tr key={aluno.studentId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                    <td className="p-4 font-bold text-slate-700 border-r border-slate-200 flex items-center gap-3">
+                       <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 border border-slate-300 print:hidden cursor-pointer" onClick={() => setViewingProfileId(aluno.studentId)}>{systemUsers[aluno.studentId]?.avatar || '??'}</div>
+                       <span className="cursor-pointer hover:text-teal-700" onClick={() => setViewingProfileId(aluno.studentId)}>{aluno.nome}</span>
+                    </td>
+                    <td className="p-3 border-r border-slate-200 text-center">
+                      {isEditing ? (
+                        <input type="number" step="0.1" value={aluno.ga||''} onChange={(e) => updateGrade(aluno.studentId, 'ga', e.target.value)} className="w-16 text-center border p-2 rounded-lg font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white shadow-inner" />
+                      ) : (
+                        <span className="font-bold text-slate-700">{aluno.ga}</span>
+                      )}
+                    </td>
+                    <td className="p-3 border-r border-slate-200 text-center">
+                      {isEditing ? (
+                        <input type="number" step="0.1" value={aluno.gb||''} onChange={(e) => updateGrade(aluno.studentId, 'gb', e.target.value)} className="w-16 text-center border p-2 rounded-lg font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white shadow-inner" />
+                      ) : (
+                        <span className="font-bold text-slate-700">{aluno.gb}</span>
+                      )}
+                    </td>
+                    <td className="p-3 border-r border-slate-200 text-center">
+                      {isEditing ? (
+                        <input type="number" step="0.1" value={aluno.gc||''} onChange={(e) => updateGrade(aluno.studentId, 'gc', e.target.value)} className="w-16 text-center border p-2 rounded-lg font-bold focus:ring-2 focus:ring-teal-500 outline-none bg-white shadow-inner" />
+                      ) : (
+                        <span className="font-bold text-slate-700">{aluno.gc}</span>
+                      )}
+                    </td>
+                    <td className="p-4 border-r border-slate-200 text-center font-black bg-slate-100 print:bg-white text-lg text-teal-800">{total}</td>
+                    <td className="p-4 border-r border-slate-200 text-center">
+                      <span className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider print:border ${isApproved ? 'bg-emerald-100 text-emerald-800 print:border-emerald-500' : 'bg-red-100 text-red-800 print:border-red-500'}`}>
+                        {isApproved ? 'Aprovado' : 'Em Exame'}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      {isEditing ? (
+                        <input type="text" value={aluno.feedback||''} onChange={(e) => updateFeedback(aluno.studentId, e.target.value)} placeholder="Digite o parecer aqui..." className="w-full border border-slate-300 p-2 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white shadow-inner" />
+                      ) : (
+                        <span className="text-sm text-slate-600 italic">{aluno.feedback || "Sem feedback no momento."}</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderAttendance = () => (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden animate-fade-in print:shadow-none print:border-none">
+      <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
+        <div>
+          <h3 className="font-bold text-lg text-slate-800">Diário de Classe - Frequência Oficial</h3>
+          <p className="text-xs text-slate-500 print:hidden">O quadrado <strong className="text-slate-800">Preto</strong> significa Falta e o <strong className="text-emerald-700">Verde</strong> significa Presença.</p>
+        </div>
+        <div className="flex gap-3">
+          {isEditing && (
+            <button onClick={handleAddAttendanceCol} className="bg-teal-100 text-teal-800 border border-teal-200 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-200 transition print:hidden shadow-sm">
+              <Plus className="w-4 h-4"/> Registrar Nova Aula
+            </button>
+          )}
+          <button onClick={() => window.print()} className="bg-teal-800 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-900 transition print:hidden shadow-sm">
+            <Printer className="w-4 h-4"/> Gerar PDF Oficial
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr className="bg-slate-200 text-slate-700 print:bg-slate-200 print:border-b-2">
+              <th rowSpan="2" className="p-4 border border-slate-300 font-bold min-w-[250px]">Nome do Estudante</th>
+              <th rowSpan="2" className="p-4 border border-slate-300 font-bold text-center">Faltas Computadas</th>
+              {currentAttendanceCols.length > 0 ? (
+                <th colSpan={currentAttendanceCols.length} className="p-3 border border-slate-300 font-bold text-center bg-slate-300 print:bg-slate-300">Dias de Aula Registrados no Semestre</th>
+              ) : (
+                <th rowSpan="2" className="p-4 border border-slate-300 font-bold text-center text-slate-400 italic">Nenhuma aula foi registrada no diário.</th>
+              )}
+            </tr>
+            {currentAttendanceCols.length > 0 && (
+              <tr className="bg-slate-100 text-slate-700 text-center text-xs">
+                {currentAttendanceCols.map((col, index) => (
+                  <th key={col.id} className="p-3 border border-slate-300 relative group min-w-[90px]">
+                    {col.label}
+                    {isEditing && (
+                      <button onClick={() => handleRemoveAttendanceCol(index)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition print:hidden shadow-sm" title="Apagar Dia de Aula">
+                        <X className="w-3 h-3"/>
+                      </button>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            )}
+          </thead>
+          <tbody>
+            {visibleGradesAndAttendance.length === 0 ? (
+              <tr><td colSpan={2 + currentAttendanceCols.length} className="p-8 text-center text-slate-500 font-medium">Turma vazia ou sem acesso ao diário de classe.</td></tr>
+            ) : (
+              visibleGradesAndAttendance.map((aluno) => {
+                if(!aluno) return null;
+                const faltasArray = aluno.faltas || new Array(currentAttendanceCols.length).fill(false);
+                const qtdeFaltas = faltasArray.filter(f => f).length;
+                return (
+                  <tr key={aluno.studentId} className="hover:bg-slate-50 print:border-b print:border-slate-200 transition-colors">
+                    <td className="p-4 border border-slate-200 font-bold text-slate-800 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 border border-slate-300 print:hidden cursor-pointer" onClick={() => setViewingProfileId(aluno.studentId)}>{systemUsers[aluno.studentId]?.avatar || '??'}</div>
+                      <span className="cursor-pointer hover:text-teal-700" onClick={() => setViewingProfileId(aluno.studentId)}>{aluno.nome}</span>
+                    </td>
+                    <td className="p-4 border border-slate-200 text-center">
+                      <span className={`font-black text-lg ${qtdeFaltas > 1 ? 'text-red-600' : 'text-slate-700'}`}>{qtdeFaltas}</span>
+                    </td>
+                    {currentAttendanceCols.map((col, i) => {
+                      const isFalta = faltasArray[i];
+                      return (
+                        <td key={col.id} className={`p-3 border border-slate-200 text-center transition-colors ${isEditing ? 'cursor-pointer hover:opacity-80' : ''} ${isFalta ? 'bg-slate-800 print:bg-white print:text-black' : 'bg-emerald-700 print:bg-white print:text-black'}`} onClick={() => isEditing && toggleAttendance(aluno.studentId, i)}>
+                          <div className="print:hidden flex justify-center">
+                            <input type="checkbox" checked={!isFalta} readOnly className="w-5 h-5 rounded text-white pointer-events-none cursor-pointer" />
+                          </div>
+                          <div className="hidden print:block font-black text-base">
+                            {isFalta ? 'Falta' : '•'}
+                          </div>
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })
