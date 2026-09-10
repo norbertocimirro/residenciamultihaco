@@ -213,12 +213,12 @@ function LmsEnterprisePortal() {
   const [dbForums, setDbForums, forumsLoaded] = useFirestoreDB('tb_forums_v3', {});
   const [dbExams, setDbExams, examsLoaded] = useFirestoreDB('tb_exams_v1', {});
 
-  // Blindagem de Variáveis
+  // Blindagem de Variáveis (Aqui estava o erro sutil corrigido!)
   const systemUsers = typeof dbUsers === 'object' && dbUsers !== null ? dbUsers : {};
   const courses = Array.isArray(dbCourses) ? dbCourses : [];
   const courseContents = typeof dbContents === 'object' && dbContents !== null ? dbContents : {};
   const courseStudents = typeof dbStudents === 'object' && dbStudents !== null ? dbStudents : {};
-  const attendanceCols = typeof dbAttendanceCols === 'object' && dbAttendanceCols !== null ? attendanceCols : {};
+  const attendanceCols = typeof dbAttendanceCols === 'object' && dbAttendanceCols !== null ? dbAttendanceCols : {};
   const forums = typeof dbForums === 'object' && dbForums !== null ? dbForums : {};
   const exams = typeof dbExams === 'object' && dbExams !== null ? dbExams : {};
 
@@ -292,7 +292,7 @@ function LmsEnterprisePortal() {
   }
 
   // ========================================
-  // LÓGICA DE LOGIN (ROTEAMENTO)
+  // LÓGICA DE LOGIN E ROTEAMENTO
   // ========================================
   const handleLogin = (e) => {
     e.preventDefault();
@@ -325,6 +325,7 @@ function LmsEnterprisePortal() {
   if (!isLoggedIn) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-900 font-sans p-4 relative overflow-hidden">
+        {/* Efeitos de Fundo */}
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-teal-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-40"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-40"></div>
 
@@ -635,6 +636,7 @@ function LmsEnterprisePortal() {
     let finalFileName = newFile ? newFile.name : null;
     const finalItemId = `item_${Date.now()}`;
 
+    // Upload Físico de Arquivos
     if ((newItemType === 'FileText' || newItemType === 'Upload') && newFile) {
       setIsUploading(true);
       try {
@@ -642,8 +644,8 @@ function LmsEnterprisePortal() {
         await uploadBytes(fileRef, newFile);
         finalUrl = await getDownloadURL(fileRef);
       } catch (err) {
-        console.error("Erro de upload no Storage:", err);
-        alert("Erro no Upload! Verifique se ativou as regras do Firebase Storage.");
+        console.error("Erro no Upload:", err);
+        alert("Erro no Upload! Verifique as regras do Storage no Firebase.");
         setIsUploading(false);
         return;
       }
@@ -683,7 +685,7 @@ function LmsEnterprisePortal() {
   };
 
   // ----------------------------------------
-  // NOTAS E DIÁRIO DE CLASSE (FREQUÊNCIA)
+  // NOTAS E FREQUÊNCIA
   // ----------------------------------------
   const updateGrade = (studentId, field, value) => {
     const updatedStudents = (courseStudents[activeCourseId] || []).map(s => {
@@ -780,11 +782,9 @@ function LmsEnterprisePortal() {
     u && u.role === 'aluno' && !rawActiveStudents.some(s => s?.studentId === u.id)
   );
 
-
   // ==========================================
-  // RENDERIZAÇÕES DOS MODAIS
+  // RENDERIZAÇÃO: PÁGINA DE LEITURA (TEXT CONTENT)
   // ==========================================
-
   const renderReadingModal = () => {
     if (!readingItem) return null;
     return (
@@ -814,11 +814,16 @@ function LmsEnterprisePortal() {
     );
   };
 
+
+  // ==========================================
+  // RENDERIZAÇÃO: PERFIL DE USUÁRIO
+  // ==========================================
   const renderProfileModal = () => {
     const profileUser = systemUsers[viewingProfileId];
     if (!profileUser) return null;
 
     const isMe = viewingProfileId === currentUser.id;
+    // O Administrador e o Professor podem ver tudo. Alunos só veem se for público.
     const canSeePrivate = isMe || role === 'admin' || role === 'professor' || profileUser.showContactPublicly;
 
     const startEditingProfile = () => {
@@ -936,6 +941,9 @@ function LmsEnterprisePortal() {
     );
   };
 
+  // ==========================================
+  // RENDERIZAÇÃO: FÓRUM PROFISSIONAL (PHPBB)
+  // ==========================================
   const renderForumModal = () => {
     const forumData = forums[activeForumItem.id] || []; 
     const currentTopicData = forumData.find(t => t.id === activeTopicId);
@@ -1010,6 +1018,7 @@ function LmsEnterprisePortal() {
           <div className="flex-1 flex overflow-hidden">
             {!activeTopicId ? (
               
+              /* LISTA DE TÓPICOS */
               <div className="flex-1 p-8 overflow-y-auto space-y-8">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg">
@@ -1052,6 +1061,7 @@ function LmsEnterprisePortal() {
               </div>
             ) : (
               
+              /* VISÃO DO TÓPICO E RESPOSTAS */
               <div className="flex-1 flex flex-col h-full bg-slate-50">
                 <div className="p-4 border-b border-slate-200 bg-white shrink-0 flex items-center gap-4 shadow-sm">
                   <button onClick={() => setActiveTopicId(null)} className="p-2 bg-slate-100 text-slate-600 hover:bg-purple-100 hover:text-purple-700 rounded-lg font-bold transition flex items-center gap-1">
@@ -1062,6 +1072,7 @@ function LmsEnterprisePortal() {
                 
                 <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6">
                   
+                  {/* Post Original */}
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-purple-600"></div>
                     <div className="flex items-center gap-4 mb-4 border-b border-slate-100 pb-4">
@@ -1076,6 +1087,7 @@ function LmsEnterprisePortal() {
                     <p className="text-slate-700 text-base whitespace-pre-wrap leading-relaxed">{currentTopicData?.description}</p>
                   </div>
 
+                  {/* Respostas */}
                   <div className="space-y-4 pl-4 md:pl-12 border-l-2 border-slate-200">
                     {(currentTopicData?.replies || []).map((reply, idx) => (
                       <div key={reply.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative">
@@ -1099,6 +1111,7 @@ function LmsEnterprisePortal() {
                   </div>
                 </div>
 
+                {/* Área para Responder */}
                 <div className="p-6 bg-white border-t border-slate-200 shrink-0">
                   <form onSubmit={handleReplyTopic} className="flex gap-4">
                     <textarea name="reply" required placeholder="Escreva sua resposta para o tópico..." className="flex-1 border border-slate-300 p-4 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none h-20 bg-slate-50 focus:bg-white transition-colors"></textarea>
@@ -1115,6 +1128,9 @@ function LmsEnterprisePortal() {
     );
   };
 
+  // ==========================================
+  // RENDERIZAÇÃO: PROVA NATIVA E AVALIAÇÕES
+  // ==========================================
   const renderExamModal = () => {
     const examData = exams[activeExamItem.id] || { questions: [], submissions: {} };
     
@@ -1157,6 +1173,7 @@ function LmsEnterprisePortal() {
       setLocalQuestions([]); 
     };
 
+    // VISÃO DE CONSTRUÇÃO DE PROVA (ADMIN / PROFESSOR NO MODO EDIÇÃO)
     if (isEditing) {
       return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
@@ -1175,6 +1192,7 @@ function LmsEnterprisePortal() {
             
             <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8">
               
+              {/* LISTA DE QUESTÕES */}
               {localQuestions.map((q, qIndex) => (
                 <div key={q.id} className="bg-white p-8 border border-slate-200 rounded-2xl shadow-sm relative">
                   <button onClick={() => setLocalQuestions(localQuestions.filter((_, i) => i !== qIndex))} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors" title="Apagar Questão"><Trash2 className="w-5 h-5"/></button>
@@ -1199,6 +1217,7 @@ function LmsEnterprisePortal() {
                 <Plus className="w-6 h-6"/> Adicionar Nova Questão
               </button>
 
+              {/* PAINEL DE NOTAS (RESULTADOS DOS ALUNOS) */}
               <div className="mt-12 border-t-2 border-dashed border-slate-300 pt-8">
                 <h3 className="font-black text-xl text-slate-800 mb-6 flex items-center gap-2">
                   <BarChart className="w-6 h-6 text-rose-600"/> Resultados dos Residentes
@@ -1243,6 +1262,7 @@ function LmsEnterprisePortal() {
       );
     }
 
+    // VISÃO DE RESOLUÇÃO DE PROVA (ALUNO)
     const mySubmission = examData.submissions[currentUser.id];
     
     const handleSumbitExam = (e) => {
@@ -1297,6 +1317,7 @@ function LmsEnterprisePortal() {
           <div className="flex-1 overflow-y-auto p-6 sm:p-10">
             
             {mySubmission ? (
+              // SE O USUÁRIO JÁ FEZ A PROVA
               <div className="text-center bg-white p-12 rounded-3xl border border-slate-200 shadow-sm max-w-md mx-auto mt-10">
                 <CheckCircle className="w-20 h-20 text-emerald-500 mx-auto mb-6"/>
                 <h3 className="text-2xl font-black text-slate-800">Avaliação Concluída</h3>
@@ -1307,7 +1328,7 @@ function LmsEnterprisePortal() {
                 </div>
               </div>
             ) : (
-              
+              // SE O USUÁRIO AINDA VAI FAZER A PROVA
               <form onSubmit={handleSumbitExam} className="space-y-8 max-w-3xl mx-auto pb-10">
                 {examData.questions.length === 0 ? (
                   <p className="text-center text-slate-500 bg-white p-8 rounded-xl border border-slate-200">
@@ -1352,8 +1373,9 @@ function LmsEnterprisePortal() {
     );
   };
 
+
   // ==========================================
-  // RENDERIZAÇÕES DOS PAINEIS CENTRAIS
+  // RENDERIZAÇÕES DOS DASHBOARDS E LISTAGENS
   // ==========================================
   const renderUserHome = () => (
     <div className="space-y-6 animate-fade-in">
@@ -2044,6 +2066,7 @@ function LmsEnterprisePortal() {
   return (
     <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-800 overflow-hidden print:bg-white print:h-auto print:overflow-visible">
       
+      {/* MENU LATERAL ESQUERDO */}
       <aside className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 text-slate-300 transition-all duration-300 flex flex-col flex-shrink-0 shadow-2xl z-20 relative print:hidden`}>
         <div className="h-20 flex items-center justify-between px-5 border-b border-slate-800">
           {sidebarOpen && <span className="font-black text-white text-lg tracking-tight leading-tight">Portal <span className="text-teal-400">COREMU</span></span>}
@@ -2055,6 +2078,7 @@ function LmsEnterprisePortal() {
         <div className="flex-1 overflow-y-auto py-6 no-scrollbar">
           <nav className="space-y-2 px-4">
             
+            {/* LINKS DO ADMIN E DIRETÓRIO */}
             {role === 'admin' && (
               <>
                 <button onClick={() => {setCurrentView('admin_dashboard'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-sm font-bold transition-colors ${currentView === 'admin_dashboard' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
@@ -2069,6 +2093,7 @@ function LmsEnterprisePortal() {
               </>
             )}
 
+            {/* LINK HOME (PROF E ALUNO) */}
             {(role === 'professor' || role === 'aluno') && (
               <button onClick={() => {setCurrentView('user_home'); setActiveCourseId(null); setEditMode(false);}} className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-sm font-bold transition-colors ${currentView === 'user_home' ? 'bg-teal-900/40 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800 text-slate-400'}`}>
                 <Home className="w-5 h-5 flex-shrink-0" />
@@ -2076,6 +2101,7 @@ function LmsEnterprisePortal() {
               </button>
             )}
 
+            {/* LISTAGEM DE DISCIPLINAS NA BARRA LATERAL */}
             {sidebarOpen && <div className="mt-8 mb-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Minhas Disciplinas Ativas</div>}
             
             {visibleCourses.length === 0 ? (
@@ -2092,6 +2118,7 @@ function LmsEnterprisePortal() {
                       {sidebarOpen && <span className="truncate block w-full text-left">{c.nome}</span>}
                     </button>
                     
+                    {/* SUBMENU DA DISCIPLINA ATIVA */}
                     {isCourseActive && sidebarOpen && (
                       <div className="ml-5 pl-4 border-l-2 border-slate-700 mt-2 space-y-1 mb-6">
                         <button onClick={() => setCurrentView('course_home')} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-bold transition-colors ${currentView === 'course_home' ? 'text-teal-400 bg-slate-800 shadow-sm' : 'hover:bg-slate-800 text-slate-400'}`}>
@@ -2115,10 +2142,10 @@ function LmsEnterprisePortal() {
           </nav>
         </div>
 
-        {/* BOTAO SAIR (Logout do Sistema) */}
+        {/* BOTAO SAIR (Logout) */}
         {sidebarOpen && (
           <div className="p-6 bg-slate-950 border-t border-slate-800 z-50">
-            <button onClick={() => { setIsLoggedIn(false); setActiveUserId(null); }} className="w-full bg-red-900/50 hover:bg-red-800 text-red-200 text-sm font-bold p-3 rounded-xl border border-red-800 transition flex items-center justify-center gap-2">
+            <button onClick={handleLogout} className="w-full bg-red-900/50 hover:bg-red-800 text-red-200 text-sm font-bold p-3 rounded-xl border border-red-800 transition flex items-center justify-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
               Sair do Sistema
             </button>
@@ -2126,8 +2153,10 @@ function LmsEnterprisePortal() {
         )}
       </aside>
 
+      {/* ÁREA CENTRAL E DIREITA DA PLATAFORMA */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative print:overflow-visible">
         
+        {/* CABEÇALHO SUPERIOR (HEADER) */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-10 shadow-sm z-10 print:hidden shrink-0">
           <div className="flex items-center gap-4 flex-1">
             <div className="hidden sm:flex items-center text-sm font-semibold text-slate-600 gap-6">
@@ -2147,23 +2176,28 @@ function LmsEnterprisePortal() {
           </div>
         </header>
 
+        {/* MIOLO CENTRAL: ONDE AS TELAS SÃO RENDERIZADAS */}
         <main className="flex-1 overflow-y-auto p-6 md:p-10 bg-[#f8f9fa] print:bg-white print:p-0 print:overflow-visible relative">
           <div className="max-w-6xl mx-auto pb-20">
             
+            {/* TELAS GLOBAIS */}
             {currentView === 'user_home' && renderUserHome()}
             {currentView === 'admin_dashboard' && renderAdminDashboard()}
             {currentView === 'admin_users' && renderAdminUsers()}
             
+            {/* RENDERIZAÇÃO DA DISCIPLINA ATIVA */}
             {activeCourseId && ['course_home', 'participants', 'grades', 'attendance'].includes(currentView) && (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-6 mt-4">
                   <div className="flex-1">
+                    {/* TÍTULO DA DISCIPLINA */}
                     {isEditing ? (
                       <input type="text" value={activeCourseObj?.nome || ''} onChange={(e) => updateCourseDetails('nome', e.target.value)} placeholder="Digite o Nome da Disciplina aqui..." className="w-full text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight bg-transparent border-b-2 border-dashed border-slate-300 focus:border-teal-500 focus:outline-none mb-3 pb-2 transition-colors" />
                     ) : (
                       <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-3">{activeCourseObj?.nome}</h1>
                     )}
                     
+                    {/* DADOS SECUNDÁRIOS DA DISCIPLINA */}
                     {isEditing ? (
                       <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm w-fit">
                         <input type="text" value={activeCourseObj?.codigo || ''} onChange={(e) => updateCourseDetails('codigo', e.target.value)} placeholder="Cód: RMAB001" className="w-32 text-sm text-teal-700 font-bold bg-teal-50 px-3 py-1.5 rounded-lg border border-dashed border-teal-300 focus:border-teal-500 focus:outline-none transition-colors" />
@@ -2179,6 +2213,7 @@ function LmsEnterprisePortal() {
                     )}
                   </div>
                   
+                  {/* O BOTÃO QUE ATIVA O MODO DE EDIÇÃO */}
                   {hasEditPermission && (
                     <div className="flex items-center bg-white border border-slate-200 p-1.5 rounded-xl shadow-sm shrink-0 print:hidden">
                       <span className="text-xs font-bold text-slate-600 px-3 hidden sm:inline uppercase tracking-widest">Modo de Edição</span>
@@ -2190,6 +2225,7 @@ function LmsEnterprisePortal() {
                   )}
                 </div>
 
+                {/* CAIXA DE ALERTA DO MODO DE EDIÇÃO */}
                 {hasEditPermission && editMode && (
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 p-5 rounded-2xl mb-8 text-sm flex gap-4 print:hidden shadow-sm items-center">
                     <Shield className="w-8 h-8 text-amber-500 shrink-0"/>
@@ -2197,6 +2233,7 @@ function LmsEnterprisePortal() {
                   </div>
                 )}
 
+                {/* BREADCRUMB */}
                 <div className="flex items-center text-xs text-slate-500 mb-8 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm print:hidden">
                   <span className="hover:text-slate-800 font-medium">Portal COREMU</span>
                   <ChevronRight className="w-4 h-4 mx-3 text-slate-300" />
@@ -2209,6 +2246,7 @@ function LmsEnterprisePortal() {
                   }</span>
                 </div>
 
+                {/* RENDERIZAÇÃO DINÂMICA DA TELA DA DISCIPLINA */}
                 {currentView === 'course_home' && renderCourseHome()}
                 {currentView === 'participants' && renderParticipants()}
                 {currentView === 'grades' && renderGradebook()}
@@ -2216,10 +2254,11 @@ function LmsEnterprisePortal() {
               </>
             )}
             
+            {/* RENDERIZAÇÃO DOS MODAIS EM CAMADA SUPERIOR */}
+            {readingItem && renderReadingModal()}
             {viewingProfileId && renderProfileModal()}
             {activeForumItem && renderForumModal()}
             {activeExamItem && renderExamModal()}
-            {readingItem && renderReadingModal()}
 
           </div>
         </main>
