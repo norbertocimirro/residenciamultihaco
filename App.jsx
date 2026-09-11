@@ -182,13 +182,13 @@ function LmsEnterprisePortal() {
   // --------------------------------------------------------------------------
   // BANCO DE DADOS: COLEÇÕES E ESTADOS
   // --------------------------------------------------------------------------
-  const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users_v3', {
+  const [dbUsers, setDbUsers, usersLoaded] = useFirestoreDB('tb_users_v4', {
     'admin1': { 
       id: 'admin1', 
       nome: 'Gestão Acadêmica', 
       role: 'admin', 
       avatar: 'GA', 
-      email: 'gestao@instituicao.edu.br', 
+      email: 'gestao@haco.mil.br', 
       phone: '(00) 0000-0000', 
       bio: 'Perfil administrativo do sistema.', 
       showContactPublicly: true 
@@ -198,7 +198,7 @@ function LmsEnterprisePortal() {
       nome: 'Prof. Norberto Cimirro', 
       role: 'professor', 
       avatar: 'NC', 
-      email: 'professor@instituicao.edu.br', 
+      email: 'norberto@haco.mil.br', 
       phone: '(00) 99999-9999', 
       bio: 'Docente responsável pelas disciplinas base.', 
       showContactPublicly: true 
@@ -208,7 +208,7 @@ function LmsEnterprisePortal() {
       nome: 'Mariana Alves', 
       role: 'aluno', 
       avatar: 'MA', 
-      email: 'aluno@instituicao.edu.br', 
+      email: 'mariana@teste.com', 
       phone: '(00) 88888-8888', 
       bio: 'Residente / Aluno matriculado.', 
       showContactPublicly: false 
@@ -594,7 +594,6 @@ function LmsEnterprisePortal() {
     if (!newStudentId) return;
     
     const currentColsLength = (attendanceCols[courseId] || []).length;
-    
     const newStudentData = { 
       studentId: newStudentId, 
       ga: 0, 
@@ -845,7 +844,7 @@ function LmsEnterprisePortal() {
   );
 
   // ============================================================================
-  // FUNÇÕES DE RENDERIZAÇÃO COMPLEXAS (MODAIS E VISÕES DE PRODUTO)
+  // RENDERIZAÇÕES DOS MODAIS
   // ============================================================================
 
   const renderProfileModal = () => {
@@ -875,7 +874,7 @@ function LmsEnterprisePortal() {
 
     return (
       <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-8 print:hidden">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
           
           <div className="bg-gradient-to-r from-teal-800 to-teal-600 p-8 text-white relative flex flex-col items-center shrink-0 shadow-sm">
             <button 
@@ -2408,6 +2407,217 @@ function LmsEnterprisePortal() {
     </div>
   );
 
+  const renderCourseHome = () => (
+    <div className="animate-fade-in relative">
+      
+      {activeSectionForNewItem && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden animate-fade-in flex flex-col h-[95vh]">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+              <h3 className="font-black text-slate-800 text-lg">Adicionar material à aula</h3>
+              <button onClick={() => setActiveSectionForNewItem(null)} className="text-slate-400 hover:text-slate-700 bg-white shadow-sm p-1.5 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+            </div>
+            
+            <div className="p-6 md:p-10 overflow-y-auto flex-1 bg-slate-50/50">
+              <form onSubmit={handleConfirmAddItem} className="space-y-8 max-w-4xl mx-auto">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Título do Material na Plataforma</label>
+                  <input type="text" required value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} placeholder="Ex: Aula 01 - Fundamentos Essenciais" className="w-full border border-slate-300 p-4 rounded-xl text-base font-medium focus:ring-2 focus:ring-teal-500 outline-none shadow-sm transition-all" />
+                </div>
+                
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-3">Formato do Conteúdo (Escolha um)</label>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div onClick={() => setNewItemType('TextContent')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'TextContent' ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
+                      <AlignLeft className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Página Web<br/><span className="font-normal text-slate-400 mt-1 block">Texto Escrito</span></span>
+                    </div>
+                    <div onClick={() => setNewItemType('FileText')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'FileText' ? 'border-red-500 bg-red-50 text-red-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
+                      <FileText className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Documento<br/><span className="font-normal text-slate-400 mt-1 block">PDF ou Excel</span></span>
+                    </div>
+                    <div onClick={() => setNewItemType('Link')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'Link' ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
+                      <Link className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Vídeo Aula<br/><span className="font-normal text-slate-400 mt-1 block">Link Externo</span></span>
+                    </div>
+                    <div onClick={() => setNewItemType('NativeExam')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'NativeExam' ? 'border-rose-500 bg-rose-50 text-rose-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
+                      <ClipboardList className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Prova Nativa<br/><span className="font-normal text-slate-400 mt-1 block">Avaliação COREMU</span></span>
+                    </div>
+                    <div onClick={() => setNewItemType('MessageSquare')} className={`cursor-pointer border-2 p-4 rounded-xl flex flex-col items-center gap-3 transition-all text-center ${newItemType === 'MessageSquare' ? 'border-purple-500 bg-purple-50 text-purple-800 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-white hover:shadow-sm bg-white'}`}>
+                      <MessageSquare className="w-7 h-7"/><span className="text-[11px] font-bold leading-tight">Fórum phpBB<br/><span className="font-normal text-slate-400 mt-1 block">Tópicos e Debates</span></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="animate-fade-in border-t border-slate-200 pt-6">
+                  {newItemType === 'FileText' || newItemType === 'Upload' ? (
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-4">Upload Direto para Nuvem (Storage)</label>
+                      <input type="file" onChange={(e) => setNewFile(e.target.files[0])} className="w-full text-sm bg-slate-50 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-teal-100 file:text-teal-800 hover:file:bg-teal-200 cursor-pointer text-slate-500 rounded-xl transition" />
+                    </div>
+                  ) : newItemType === 'Link' ? (
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-4">URL do Vídeo (YouTube/Drive) ou Site</label>
+                      <input type="url" required value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} placeholder="Cole o link começando com https://..." className="w-full border border-slate-300 p-4 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition" />
+                    </div>
+                  ) : newItemType === 'NativeExam' ? (
+                    <div className="bg-rose-50 text-rose-800 p-6 rounded-xl border border-rose-200 flex items-center gap-4 shadow-sm">
+                      <ClipboardList className="w-10 h-10 shrink-0 text-rose-500"/>
+                      <div>
+                        <strong className="block text-base mb-1">A prova será ativada no formato de rascunho em branco.</strong>
+                        <span className="text-sm">Após salvar e fechar esta tela, clique no botão "Configurar Prova Oficial" lá no mural principal da disciplina para escrever as perguntas, as alternativas e definir o gabarito.</span>
+                      </div>
+                    </div>
+                  ) : newItemType === 'MessageSquare' ? (
+                    <div className="bg-purple-50 text-purple-800 p-6 rounded-xl border border-purple-200 flex items-center gap-4 shadow-sm">
+                      <Users className="w-10 h-10 shrink-0 text-purple-500"/>
+                      <div>
+                        <strong className="block text-base mb-1">Criação de Fórum Acadêmico</strong>
+                        <span className="text-sm">Um ambiente estruturado no estilo phpBB será gerado automaticamente. Professores e alunos poderão criar Tópicos e enviar Respostas documentadas permanentemente.</span>
+                      </div>
+                    </div>
+                  ) : newItemType === 'TextContent' ? (
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-amber-600 uppercase tracking-widest block">Redator da Aula (Página Web Rica)</label>
+                      <div className="border-2 border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm h-[400px] flex flex-col">
+                        <ReactQuill theme="snow" value={newItemTextContent} onChange={setNewItemTextContent} modules={quillModules} className="h-full flex flex-col" />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="pt-6 shrink-0">
+                  <button type="submit" disabled={isUploading} className="w-full bg-teal-800 text-white font-black p-4 rounded-xl hover:bg-teal-900 transition shadow-lg text-lg disabled:bg-slate-400 flex items-center justify-center">
+                    {isUploading ? (
+                      <span className="flex items-center gap-3"><Loader2 className="w-6 h-6 animate-spin"/> Transferindo arquivo para nuvem...</span>
+                    ) : (
+                      'Publicar na Sala de Aula'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditing && (
+        <div onClick={addSection} className="mb-8 border-2 border-dashed border-teal-300 rounded-xl p-6 text-center bg-teal-50/50 hover:bg-teal-50 cursor-pointer transition text-teal-700 font-bold text-base flex items-center justify-center gap-3 shadow-sm print:hidden">
+          <Plus className="w-6 h-6"/> Criar Novo Tópico ou Módulo Temático
+        </div>
+      )}
+
+      {activeContent.length === 0 && (
+        <div className="text-center p-16 bg-white rounded-2xl border border-slate-200 text-slate-400 shadow-sm mt-8">
+          <Book className="w-16 h-16 mx-auto mb-4 opacity-20"/>
+          <p className="font-black text-xl text-slate-700">Sala de Aula Vazia</p>
+          <p className="text-sm mt-2">Ative o "Modo de Edição" e clique no botão acima para começar a adicionar materiais, provas e fóruns.</p>
+        </div>
+      )}
+
+      {activeContent.map(section => {
+        if(!section) return null;
+        return(
+        <div key={section.id} className={`mb-8 rounded-2xl border ${section.borderColor || 'border-slate-200'} overflow-hidden shadow-sm bg-white print:break-inside-avoid transition-all`}>
+          <div className={`flex items-center justify-between p-4 sm:p-5 ${section.bgColor || 'bg-slate-50'} border-b ${section.borderColor || 'border-slate-200'}`}>
+            <div className="flex items-center gap-4 w-full">
+              <button onClick={() => toggleModule(section.id)} className="p-2 bg-white/50 hover:bg-white rounded-lg transition shadow-sm print:hidden">
+                {expandedModules[section.id] !== false ? <ChevronDown className="w-5 h-5 text-slate-600"/> : <ChevronRight className="w-5 h-5 text-slate-600"/>}
+              </button>
+              
+              {isEditing ? (
+                <input type="text" value={section.title || ''} onChange={(e) => updateSectionTitle(section.id, e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-lg font-black text-slate-800 w-full max-w-lg focus:ring-2 focus:ring-teal-500 outline-none shadow-inner" />
+              ) : (
+                <h3 className="text-xl font-black text-slate-800 cursor-pointer tracking-tight" onClick={() => toggleModule(section.id)}>{section.title}</h3>
+              )}
+            </div>
+            {isEditing && (
+              <button onClick={() => deleteSection(section.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-4 print:hidden" title="Excluir Módulo Completo">
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {expandedModules[section.id] !== false && (
+            <div className="p-0">
+              {(section.items || []).map(item => {
+                if(!item) return null;
+                const IconComponent = getIconComponent(item.type);
+                return (
+                  <div key={item.id} className="flex items-start justify-between p-5 sm:p-6 border-b border-slate-100 hover:bg-slate-50/50 group transition">
+                    <div className="flex items-start gap-4 w-full">
+                      
+                      {isEditing && (
+                        <GripVertical className="w-5 h-5 text-slate-300 cursor-move mt-1 print:hidden" />
+                      )}
+                      
+                      <div className={`p-3 rounded-xl flex-shrink-0 ${item.color?.replace('text-', 'bg-').replace('500', '50').replace('600', '50') || 'bg-slate-100'}`}>
+                        <IconComponent className={`w-6 h-6 ${item.color || 'text-slate-500'}`} />
+                      </div>
+                      
+                      <div className="flex-1 pt-1">
+                        {isEditing ? (
+                          <input type="text" value={item.title || ''} onChange={(e) => updateItemTitle(section.id, item.id, e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-base font-bold text-slate-800 w-full max-w-md focus:ring-2 focus:ring-teal-500 outline-none shadow-sm" />
+                        ) : (
+                          <h4 className="text-base font-bold text-slate-800">{item.title}</h4>
+                        )}
+                        
+                        {!isEditing && (
+                          <div className="mt-3 flex flex-wrap gap-3 print:hidden">
+                            
+                            {item.fileName && item.url && (
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-4 py-2 rounded-lg transition shadow-sm w-fit">
+                                <Download className="w-4 h-4"/> Baixar {item.fileName}
+                              </a>
+                            )}
+                            
+                            {item.type === 'NativeExam' && (
+                              <button onClick={() => { setActiveExamItem(item); setLocalQuestions(exams[item.id]?.questions || []); }} className="flex items-center gap-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-lg transition shadow-md w-fit">
+                                <ClipboardList className="w-4 h-4"/> {(role === 'professor' || role === 'admin') ? 'Configurar Prova Oficial / Ver Notas' : 'Fazer Avaliação'}
+                              </button>
+                            )}
+                            
+                            {item.type === 'Link' && item.url && !item.fileName && (
+                              <a href={item.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-lg transition shadow-sm w-fit">
+                                <Link className="w-4 h-4"/> Acessar Link Externo
+                              </a>
+                            )}
+                            
+                            {item.type === 'TextContent' && (
+                              <button onClick={() => setReadingItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-4 py-2 rounded-lg transition shadow-sm w-fit">
+                                <AlignLeft className="w-4 h-4"/> Ler Conteúdo da Aula
+                              </button>
+                            )}
+                            
+                            {item.type === 'MessageSquare' && (
+                              <button onClick={() => setActiveForumItem(item)} className="flex items-center gap-1.5 text-xs font-bold text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-4 py-2 rounded-lg transition shadow-sm w-fit">
+                                <MessageSquare className="w-4 h-4"/> Abrir Fórum Acadêmico
+                              </button>
+                            )}
+                            
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {isEditing && (
+                      <button onClick={() => deleteItem(section.id, item.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-4 print:hidden" title="Excluir Material">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {isEditing && (
+                <div className="p-4 border-t border-dashed border-slate-200 bg-slate-50 flex justify-end print:hidden">
+                  <button onClick={() => handleOpenAddItemModal(section.id)} className="flex items-center gap-2 text-sm font-bold text-teal-700 hover:text-teal-800 bg-white px-5 py-2.5 rounded-lg border border-teal-200 shadow-sm transition hover:shadow-md">
+                    <Plus className="w-4 h-4"/> Adicionar Material neste Módulo
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )})}
+    </div>
+  );
 
   // ============================================================================
   // ESTRUTURA GLOBAL DA PLATAFORMA GERAL (A "CASCA" SHELL DO APLICATIVO WEB)
