@@ -2983,7 +2983,7 @@ function LmsEnterprisePortal() {
           {sidebarOpen && (
             <div className="flex flex-col">
               <span className="font-black text-white text-xl tracking-tight leading-none mb-1">
-                Portal <span className="text-teal-500">COREMU</span>
+                Portal <span className="text-teal-500">COREMU | HACO</span>
               </span>
             </div>
           )}
