@@ -3132,7 +3132,7 @@ function LmsEnterprisePortal() {
               </div>
               <div className="flex flex-col">
                 <span className="text-slate-800 font-bold text-lg tracking-tight leading-none">
-                  Portal Acadêmico | LMS Enterprise
+                  Portal Acadêmico | COREMU | Hospital de Aeronáutica de Canoas
                 </span>
               </div>
             </div>
